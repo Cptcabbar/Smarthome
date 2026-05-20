@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Akıllı Ev</title>
+  <style>
+    @font-face {
+      font-family: "NotoEmoji";
+      src: local("Noto Color Emoji");
+      unicode-range: U+1F000-1FFFF, U+2600-27BF, U+FE00-FE0F, U+1F900-1F9FF, U+1FA00-1FA9F;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0e1a;
+      color: #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      font-family: system-ui, "NotoEmoji", sans-serif;
+    }
+    .wrap { text-align: center; }
+    h1 { font-size: 3.6rem; font-weight: 700; margin-bottom: 16px; }
+    p  { font-size: 1.8rem; color: #64748b; margin-bottom: 64px; }
+    .spinner {
+      width: 96px; height: 96px;
+      border: 6px solid #1e2d40;
+      border-top-color: #38bdf8;
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+      margin: 0 auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🏠 Akıllı Ev</h1>
+    <p>Sistem başlatılıyor...</p>
+    <div class="spinner"></div>
+  </div>
+  <script>
+    function check() {
+      fetch('/api/status')
+        .then(r => { if (r.ok) window.location.replace('/'); else throw 0; })
+        .catch(() => setTimeout(check, 800));
+    }
+    setTimeout(check, 500);
+  </script>
+</body>
+</html>

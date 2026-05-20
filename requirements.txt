@@ -1,0 +1,13 @@
+# Smart Home Control - Raspberry Pi 5
+# Kurulum: pip install -r requirements.txt
+
+flask>=3.0.0
+faster-whisper>=1.0.0
+requests>=2.26.0
+paho-mqtt>=2.0.0
+gTTS>=2.5.0
+
+# Raspberry Pi GPIO
+# Pi 5 için lgpio, eski Pi'ler için RPi.GPIO
+lgpio>=0.2.2.0
+# RPi.GPIO>=0.7.1
