@@ -1,7 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(python3 -c \"import lgpio; h = lgpio.gpiochip_open\\(0\\); print\\('lgpio system-wide çalışıyor, handle:', h\\); lgpio.gpiochip_close\\(h\\)\")"
-    ]
-  }
-}
