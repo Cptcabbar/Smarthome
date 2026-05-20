@@ -1,2 +1,38 @@
-__pycache__
-.cloude
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+venv/
+ENV/
+env/
+
+# Environments
+.env
+.env.*
+!.env.example
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Project-specific caches and uploads
+tts_cache/
+
+# IDE / Editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# AI / Assistant tools
+.claude/
+
+# OS files
+.DS_Store
+Thumbs.db
