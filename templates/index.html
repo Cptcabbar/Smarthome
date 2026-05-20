@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Akıllı Ev Kontrol</title>
+  <style>
+    @font-face {
+      font-family: "NotoEmoji";
+      src: local("Noto Color Emoji");
+      unicode-range: U+1F000-1FFFF, U+2600-27BF, U+FE00-FE0F, U+1F900-1F9FF, U+1FA00-1FA9F;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a0e1a;
+      --surface:   #111827;
+      --border:    #1e2d40;
+      --text:      #e2e8f0;
+      --muted:     #64748b;
+      --accent:    #38bdf8;
+      --danger:    #f87171;
+      --radius:    20px;
+      --glow:      0 0 30px rgba(56,189,248,.25);
+    }
+
+    html {
+      zoom: 1.5;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, "NotoEmoji", sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      overflow: hidden;
+    }
+
+    .app {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      height: calc(100vh / 1.5);
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 16px;
+    }
+
+    header {
+      padding: 20px 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .header-left h1 {
+      font-size: clamp(1.1rem, 3vw, 1.5rem);
+      font-weight: 700;
+      letter-spacing: -.02em;
+    }
+    .header-left p {
+      font-size: .75rem;
+      color: var(--muted);
+      margin-top: 2px;
+      font-family: monospace;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    #clock {
+      font-family: monospace;
+      font-size: .9rem;
+      color: var(--accent);
+      background: rgba(56,189,248,.08);
+      border: 1px solid rgba(56,189,248,.2);
+      padding: 6px 14px;
+      border-radius: 50px;
+    }
+
+    .btn-primary {
+      background: rgba(56,189,248,.12);
+      border: 1px solid rgba(56,189,248,.35);
+      color: var(--accent);
+      padding: 6px 14px;
+      border-radius: 50px;
+      font-family: system-ui, sans-serif;
+      font-size: .8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .btn-primary:hover { background: rgba(56,189,248,.2); }
+    .btn-primary:active { transform: scale(.95); }
+
+    .all-off-btn {
+      background: rgba(248,113,113,.08);
+      border: 1px solid rgba(248,113,113,.25);
+      color: var(--danger);
+      padding: 6px 14px;
+      border-radius: 50px;
+      font-family: system-ui, sans-serif;
+      font-size: .8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .all-off-btn:hover { background: rgba(248,113,113,.15); }
+    .all-off-btn:disabled { opacity: .4; cursor: not-allowed; }
+    .all-off-btn:active:not(:disabled) { transform: scale(.95); }
+
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 32px 20px;
+      gap: 16px;
+      min-height: 200px;
+    }
+    .empty-state h2 { font-size: 1.1rem; font-weight: 600; color: var(--text); }
+    .empty-state p { font-size: .85rem; color: var(--muted); max-width: 280px; line-height: 1.5; }
+
+    .grid {
+      padding: 20px 0;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 14px;
+      align-content: start;
+      overflow-y: auto;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px 16px 18px;
+      cursor: pointer;
+      transition: border-color .25s, box-shadow .25s, transform .15s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      position: relative;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at top, var(--card-color, #fff) 0%, transparent 70%);
+      opacity: 0;
+      transition: opacity .3s;
+    }
+
+    .card.active {
+      border-color: var(--card-color, var(--accent));
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--card-color, var(--accent)) 20%, transparent),
+                  var(--glow);
+    }
+    .card.active::before { opacity: .06; }
+    .card:active { transform: scale(.96); }
+
+    .card-delete {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      opacity: 1;
+      transition: color .2s, border-color .2s, background .2s;
+      z-index: 2;
+    }
+    .card-delete:hover, .card-delete:active { color: var(--danger); border-color: var(--danger); background: rgba(248,113,113,.1); }
+
+    .card-kw-spinner {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      font-size: .6rem;
+      font-family: monospace;
+      color: #fb923c;
+      background: rgba(251,146,60,.1);
+      border: 1px solid rgba(251,146,60,.3);
+      padding: 2px 6px;
+      border-radius: 4px;
+      animation: blink 1.4s ease-in-out infinite;
+    }
+    @keyframes blink { 0%,100% { opacity:1 } 50% { opacity:.4 } }
+
+    .card-mqtt {
+      position: absolute;
+      bottom: 8px;
+      left: 8px;
+      font-size: .6rem;
+      font-family: monospace;
+      color: #4ade80;
+      background: rgba(74,222,128,.1);
+      border: 1px solid rgba(74,222,128,.25);
+      padding: 2px 6px;
+      border-radius: 4px;
+      max-width: calc(100% - 16px);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .card-icon {
+      font-size: 2.4rem;
+      line-height: 1;
+      filter: grayscale(1) opacity(.4);
+      transition: filter .3s;
+    }
+    .card.active .card-icon { filter: none; }
+
+    .card-label {
+      font-weight: 600;
+      font-size: .9rem;
+      text-align: center;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: background .3s, box-shadow .3s;
+    }
+    .card.active .status-dot {
+      background: var(--card-color, var(--accent));
+      box-shadow: 0 0 8px var(--card-color, var(--accent));
+    }
+
+    .voice-panel {
+      padding: 14px 0 20px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    .voice-panel.disabled { opacity: .45; pointer-events: none; }
+
+    .voice-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .mic-btn {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      border: none;
+      background: var(--surface);
+      border: 2px solid var(--border);
+      font-size: 1.6rem;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      transition: all .2s;
+      position: relative;
+    }
+
+    .mic-btn.recording {
+      border-color: var(--danger);
+      box-shadow: 0 0 0 6px rgba(248,113,113,.2);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 4px rgba(248,113,113,.2); }
+      50%       { box-shadow: 0 0 0 10px rgba(248,113,113,.05); }
+    }
+
+    .mic-btn:active { transform: scale(.93); }
+
+    .voice-hint {
+      font-size: .8rem;
+      color: var(--muted);
+      text-align: center;
+      max-width: 260px;
+      line-height: 1.5;
+    }
+
+    #feedback {
+      font-family: monospace;
+      font-size: .78rem;
+      color: var(--muted);
+      text-align: center;
+      min-height: 18px;
+      transition: color .3s;
+      max-width: 100%;
+      word-break: break-word;
+    }
+    #feedback.ok  { color: #4ade80; }
+    #feedback.err { color: var(--danger); }
+
+    .grid::-webkit-scrollbar { width: 4px; }
+    .grid::-webkit-scrollbar-track { background: transparent; }
+    .grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .toast {
+      position: fixed;
+      bottom: 110px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #1e293b;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 22px;
+      border-radius: 50px;
+      font-size: .85rem;
+      opacity: 0;
+      transition: all .3s;
+      pointer-events: none;
+      white-space: nowrap;
+      z-index: 99;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.65);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 16px;
+    }
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px;
+      width: 100%;
+      max-width: 520px;
+      box-shadow: 0 20px 50px rgba(0,0,0,.45);
+    }
+    .modal h3 { font-size: 1.05rem; margin-bottom: 14px; }
+    .field { margin-bottom: 12px; }
+    .field label {
+      display: block;
+      font-size: .72rem;
+      color: var(--muted);
+      margin-bottom: 4px;
+      font-family: monospace;
+    }
+    .field input {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, sans-serif;
+      font-size: .9rem;
+    }
+    .field input:focus { outline: none; border-color: var(--accent); }
+    .field-color .color-swatches {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 8px;
+      margin-top: 6px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .color-swatch {
+      flex-shrink: 0;
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      border: 2px solid var(--border);
+      cursor: pointer;
+      padding: 0;
+      transition: transform .15s, box-shadow .2s;
+      box-sizing: border-box;
+    }
+    .color-swatch:hover { transform: scale(1.06); }
+    .color-swatch.selected {
+      box-shadow: 0 0 0 2px var(--accent), 0 0 12px rgba(56,189,248,.35);
+      border-color: rgba(56,189,248,.6);
+    }
+    .color-custom {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .color-custom input[type="color"] {
+      width: 52px;
+      height: 44px;
+      padding: 2px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      background: var(--bg);
+    }
+    .color-custom input[type="color"]::-webkit-color-swatch-wrapper { padding: 3px; }
+    .color-custom input[type="color"]::-webkit-color-swatch { border: none; border-radius: 6px; }
+    .color-custom .field-hex {
+      flex: 1;
+      min-width: 0;
+      font-family: monospace;
+      font-size: .85rem;
+    }
+
+    .emoji-picker {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+      max-height: 160px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px;
+    }
+    .emoji-btn {
+      width: 44px;
+      height: 44px;
+      border: 2px solid transparent;
+      border-radius: 10px;
+      background: var(--surface);
+      font-size: 1.4rem;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      transition: border-color .15s, background .15s;
+      font-family: "NotoEmoji", system-ui, sans-serif;
+    }
+    .emoji-btn:hover, .emoji-btn:active { background: var(--border); }
+    .emoji-btn.selected { border-color: var(--accent); background: rgba(56,189,248,.1); }
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 18px;
+    }
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 8px 16px;
+      border-radius: 50px;
+      cursor: pointer;
+      font-family: system-ui, sans-serif;
+      font-size: .85rem;
+    }
+    .btn-ghost:hover { color: var(--text); border-color: var(--muted); }
+    .btn-save {
+      background: rgba(56,189,248,.15);
+      border: 1px solid rgba(56,189,248,.4);
+      color: var(--accent);
+      padding: 8px 18px;
+      border-radius: 50px;
+      cursor: pointer;
+      font-family: system-ui, sans-serif;
+      font-weight: 600;
+      font-size: .85rem;
+    }
+    .btn-save:disabled { opacity: .5; cursor: not-allowed; }
+
+    #vkb-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: none;
+      flex-direction: column;
+      justify-content: flex-end;
+    }
+    #vkb-overlay.open { display: flex; }
+    #vkb-backdrop {
+      flex: 1;
+    }
+    #vkb {
+      background: #1a2235;
+      border-top: 1px solid var(--border);
+      padding: 6px 4px 10px;
+      user-select: none;
+    }
+    .vkb-input-preview {
+      background: var(--bg);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: .9rem;
+      color: var(--text);
+      margin-bottom: 6px;
+      min-height: 34px;
+      word-break: break-all;
+    }
+    .vkb-row {
+      display: flex;
+      justify-content: center;
+      gap: 3px;
+      margin-bottom: 4px;
+    }
+    .vkb-key {
+      height: 44px;
+      flex: 1;
+      min-width: 0;
+      border-radius: 7px;
+      border: 1px solid #2a3a50;
+      background: #243044;
+      color: var(--text);
+      font-size: .85rem;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      transition: background .1s;
+      -webkit-tap-highlight-color: transparent;
+      padding: 0;
+    }
+    .vkb-key:active { background: #38bdf8; color: #000; }
+    .vkb-key.wide { flex: 1.6; font-size: .75rem; }
+    .vkb-key.space { flex: 4; }
+    .vkb-key.action { background: rgba(56,189,248,.2); border-color: rgba(56,189,248,.4); color: var(--accent); }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="header-left">
+      <h1>🏠 Akıllı Ev Kontrolü</h1>
+      <p id="clock-sub">{% if use_gpio %}Raspberry Pi · GPIO aktif{% else %}Simülasyon modu · GPIO yok{% endif %}</p>
+    </div>
+    <div class="header-right">
+      <div id="clock">--:--</div>
+      <button type="button" class="btn-primary" onclick="openAddModal()">＋ Cihaz Ekle</button>
+      <button type="button" class="all-off-btn" id="all-off-btn" onclick="allOff()">⏹ Tümünü Kapat</button>
+    </div>
+  </header>
+
+  <div id="empty-state" class="empty-state" style="display: none;">
+    <h2>Lütfen cihaz ekleyin</h2>
+    <p>Akıllı ev kontrolü için önce en az bir cihaz tanımlayın. İkon, renk ve anahtar kelimeler otomatik oluşturulur (Ollama).</p>
+    <button type="button" class="btn-primary" onclick="openAddModal()">Cihaz Ekle</button>
+  </div>
+
+  <div class="grid" id="device-grid" style="display: none;"></div>
+
+  <div class="voice-panel" id="voice-panel">
+    <div class="voice-row">
+      <button class="mic-btn" id="mic-btn" onclick="toggleRecording()">🎙️</button>
+      <div class="voice-hint" id="voice-hint">
+        Butona basılı tutun ve komut verin.<br>
+        Örnek: <em>"Salon ışığını aç"</em> · <em>"Klimayı kapat"</em>
+      </div>
+    </div>
+    <div id="feedback">Hazır.</div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div id="vkb-overlay">
+  <div id="vkb-backdrop" onclick="vkbClose()"></div>
+  <div id="vkb">
+    <div class="vkb-input-preview" id="vkb-preview"></div>
+    <div class="vkb-row" id="vkb-row0"></div>
+    <div class="vkb-row" id="vkb-row1"></div>
+    <div class="vkb-row" id="vkb-row2"></div>
+    <div class="vkb-row" id="vkb-row3"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this) closeAddModal()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3>Yeni cihaz</h3>
+    <div class="field">
+      <label for="dev-name">Cihaz adı</label>
+      <input type="text" id="dev-name" placeholder="Örn. Salon Lambası" maxlength="80" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label>İkon</label>
+      <input type="hidden" id="dev-icon" value="💡" />
+      <div class="emoji-picker" id="emoji-picker"></div>
+    </div>
+    <div class="field field-color">
+      <label>Renk</label>
+      <p style="font-size:.72rem;color:var(--muted);margin:0 0 4px 0;">Hazır tonlardan seçin veya seçici / kod ile özelleştirin.</p>
+      <div class="color-swatches" id="color-swatches" aria-label="Hazır renkler"></div>
+      <div class="color-custom">
+        <input type="color" id="dev-color-picker" value="#FFD54F" title="Renk seçici" />
+        <input type="text" class="field-hex" id="dev-color" value="#ffd54f" placeholder="#RRGGBB" maxlength="7" spellcheck="false" autocomplete="off" />
+      </div>
+    </div>
+    <div class="field">
+      <label for="dev-topic">MQTT Topic (boş = doğrudan GPIO)</label>
+      <input type="text" id="dev-topic" placeholder="ev/salon/röle1" maxlength="120" autocomplete="off" spellcheck="false" />
+    </div>
+    <div class="field">
+      <label for="dev-pin">GPIO BCM pin (MQTT varsa yoksayılır)</label>
+      <input type="number" id="dev-pin" placeholder="17" min="0" max="27" />
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn-ghost" onclick="closeAddModal()">Vazgeç</button>
+      <button type="button" class="btn-save" id="btn-save-device" onclick="submitAddDevice()">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const initialDevices = {{ devices|tojson }};
+
+const EMOJI_LIST = [
+  '💡','🔌','🖥️','📺','❄️','🌡️','🔒','🚪','🪟','💧','🔥','🎵',
+  '📡','⚡','🔆','🌙','🛋️','🛏️','🍳','🚿','🚽','🧹','🌿','🔔',
+  '📷','🔐','🏠','🚗','🌞','💨','🎮','🖨️','📱','⌨️','🖱️','💻',
+  '🔋','🔦','🕯️','🧯','🌊','🌬️','♨️','🎛️','📻','📟','🔧','⚙️'
+];
+
+function initEmojiPicker() {
+  const picker = document.getElementById('emoji-picker');
+  const hidden = document.getElementById('dev-icon');
+  picker.innerHTML = '';
+  EMOJI_LIST.forEach(function(em) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'emoji-btn' + (em === hidden.value ? ' selected' : '');
+    btn.textContent = em;
+    btn.addEventListener('click', function() {
+      hidden.value = em;
+      picker.querySelectorAll('.emoji-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+    });
+    picker.appendChild(btn);
+  });
+}
+
+const PRESET_COLORS = [
+  '#FF6B35', '#4FC3F7', '#FFD54F', '#A5D6A7', '#CE93D8',
+  '#38bdf8', '#f87171', '#67e8f9', '#4ade80', '#fb923c'
+];
+
+function normalizeHex(s) {
+  let t = (s || '').trim();
+  if (!t) return '#ffd54f';
+  if (!t.startsWith('#')) t = '#' + t;
+  if (/^#[0-9A-Fa-f]{6}$/.test(t)) return t.toLowerCase();
+  return '#ffd54f';
+}
+
+function updateSwatchSelection(hex) {
+  const h = normalizeHex(hex);
+  document.querySelectorAll('.color-swatch').forEach(function (btn) {
+    btn.classList.toggle('selected', normalizeHex(btn.dataset.color) === h);
+  });
+}
+
+function setFormColor(hex) {
+  const h = normalizeHex(hex);
+  document.getElementById('dev-color').value = h;
+  document.getElementById('dev-color-picker').value = h;
+  updateSwatchSelection(h);
+}
+
+function initColorPickers() {
+  const wrap = document.getElementById('color-swatches');
+  wrap.innerHTML = '';
+  PRESET_COLORS.forEach(function (c) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'color-swatch';
+    b.dataset.color = c;
+    b.style.background = c;
+    b.title = c;
+    b.addEventListener('click', function () {
+      setFormColor(c);
+    });
+    wrap.appendChild(b);
+  });
+  const picker = document.getElementById('dev-color-picker');
+  const text = document.getElementById('dev-color');
+  picker.addEventListener('input', function () {
+    text.value = picker.value.toLowerCase();
+    updateSwatchSelection(picker.value);
+  });
+  text.addEventListener('input', function () {
+    const h = normalizeHex(text.value);
+    if (/^#[0-9A-Fa-f]{6}$/.test(text.value.trim()) || /^[0-9A-Fa-f]{6}$/.test(text.value.trim())) {
+      picker.value = h;
+      updateSwatchSelection(h);
+    }
+  });
+  text.addEventListener('blur', function () {
+    const h = normalizeHex(text.value);
+    text.value = h;
+    picker.value = h;
+    updateSwatchSelection(h);
+  });
+  setFormColor('#FFD54F');
+}
+
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('tr-TR', { hour:'2-digit', minute:'2-digit' });
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function openAddModal() {
+  document.getElementById('dev-icon').value = '💡';
+  initEmojiPicker();
+  document.getElementById('modal-overlay').classList.add('open');
+  document.getElementById('dev-name').focus();
+}
+function closeAddModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+function _setGridVisible(hasItems) {
+  const grid  = document.getElementById('device-grid');
+  const empty = document.getElementById('empty-state');
+  const voice = document.getElementById('voice-panel');
+  const allOff = document.getElementById('all-off-btn');
+  if (hasItems) {
+    grid.style.display = 'grid';
+    empty.style.display = 'none';
+    voice.classList.remove('disabled');
+    allOff.disabled = false;
+  } else {
+    grid.style.display = 'none';
+    empty.style.display = 'flex';
+    voice.classList.add('disabled');
+    allOff.disabled = true;
+  }
+}
+
+function _buildCard(id, dev) {
+  const el = document.createElement('div');
+  el.className = 'card' + (dev.state ? ' active' : '');
+  el.id = 'card-' + id;
+  el.style.setProperty('--card-color', dev.color || '#38bdf8');
+  el.onclick = () => toggleDevice(id);
+  const kwSpinner = dev.keywords_ready === false
+    ? '<div class="card-kw-spinner" id="kw-spinner-' + id + '">⟳ kelimeler</div>'
+    : '';
+  const mqttBadge = dev.mqtt_topic
+    ? '<div class="card-mqtt" title="' + escapeHtml(dev.mqtt_topic) + '">📡 ' + escapeHtml(dev.mqtt_topic) + '</div>'
+    : '';
+  el.innerHTML =
+    '<button class="card-delete" title="Cihazı sil" onclick="deleteDevice(event,\'' + id + '\')">✕</button>' +
+    kwSpinner +
+    '<div class="card-icon">' + (dev.icon || '🏠') + '</div>' +
+    '<div class="card-label">' + escapeHtml(dev.label || id) + '</div>' +
+    '<div class="status-dot"></div>' +
+    mqttBadge;
+  return el;
+}
+
+function renderCards(devices) {
+  const grid = document.getElementById('device-grid');
+  const ids = Object.keys(devices || {});
+  _setGridVisible(ids.length > 0);
+  grid.innerHTML = '';
+  ids.forEach(id => grid.appendChild(_buildCard(id, devices[id])));
+}
+
+function addCard(id, dev) {
+  const grid = document.getElementById('device-grid');
+  if (document.getElementById('card-' + id)) return;
+  grid.appendChild(_buildCard(id, dev));
+  _setGridVisible(true);
+  if (dev.keywords_ready === false) _pollKeywords(id);
+}
+
+function _pollKeywords(id) {
+  const timer = setInterval(async () => {
+    try {
+      const res = await fetch('/api/devices');
+      const all = await res.json();
+      const dev = all[id];
+      if (!dev) { clearInterval(timer); return; }
+      if (dev.keywords_ready) {
+        clearInterval(timer);
+        const spinner = document.getElementById('kw-spinner-' + id);
+        if (spinner) {
+          spinner.textContent = '✓ hazır';
+          spinner.style.color = '#4ade80';
+          spinner.style.background = 'rgba(74,222,128,.1)';
+          spinner.style.border = '1px solid rgba(74,222,128,.25)';
+          spinner.style.animation = 'none';
+          setTimeout(() => spinner.remove(), 1500);
+        }
+      }
+    } catch (e) {}
+  }, 2000);
+}
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+async function submitAddDevice() {
+  const name = document.getElementById('dev-name').value.trim();
+  const icon = document.getElementById('dev-icon').value.trim() || '💡';
+  const color = normalizeHex(document.getElementById('dev-color').value);
+  const pinRaw = document.getElementById('dev-pin').value.trim();
+  const topic = document.getElementById('dev-topic').value.trim();
+  const btn = document.getElementById('btn-save-device');
+  if (!name) { showToast('Cihaz adı girin'); return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Kaydediliyor…';
+  try {
+    const body = { name, icon, color, use_ai_keywords: true };
+    if (topic !== '') body.mqtt_topic = topic;
+    if (pinRaw !== '') body.pin = parseInt(pinRaw, 10);
+    const res = await fetch('/api/devices', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Kayıt başarısız'); return; }
+
+    closeAddModal();
+    document.getElementById('dev-name').value = '';
+    document.getElementById('dev-topic').value = '';
+    document.getElementById('dev-pin').value = '';
+    setFormColor('#FFD54F');
+    addCard(data.id, data);
+    showToast(name + ' eklendi ✓');
+  } catch (e) {
+    showToast('Bağlantı hatası');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Kaydet';
+  }
+}
+
+async function refreshDevices() {
+  try {
+    const res = await fetch('/api/devices');
+    const data = await res.json();
+    renderCards(data);
+    Object.entries(data).forEach(([id, dev]) => updateCard(id, dev.state));
+  } catch (e) {}
+}
+
+async function toggleDevice(id) {
+  try {
+    const res = await fetch('/api/toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device: id })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showToast(data.error || 'Hata');
+      return;
+    }
+    updateCard(data.device, data.state);
+    showToast((data.label || '') + ' ' + (data.state ? 'Açıldı ✓' : 'Kapatıldı ✓'));
+  } catch (e) { showToast('Bağlantı hatası!'); }
+}
+
+function updateCard(id, state) {
+  const card = document.getElementById('card-' + id);
+  if (!card) return;
+  card.classList.toggle('active', state);
+}
+
+async function deleteDevice(event, id) {
+  event.stopPropagation();
+  const card = document.getElementById('card-' + id);
+  const label = card ? card.querySelector('.card-label').textContent : id;
+  if (!confirm('"' + label + '" cihazını silmek istiyor musunuz?')) return;
+  try {
+    const res = await fetch('/api/devices/' + id, { method: 'DELETE' });
+    if (!res.ok) {
+      const data = await res.json();
+      showToast(data.error || 'Silinemedi');
+      return;
+    }
+    if (card) card.remove();
+    _setGridVisible(document.querySelectorAll('.card').length > 0);
+    showToast(label + ' silindi ✓');
+  } catch (e) {
+    showToast('Bağlantı hatası!');
+  }
+}
+
+async function allOff() {
+  try {
+    await fetch('/api/all_off', { method: 'POST' });
+    document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
+    showToast('Tüm cihazlar kapatıldı ✓');
+  } catch (e) { showToast('Bağlantı hatası!'); }
+}
+
+async function syncStatus() {
+  try {
+    const res = await fetch('/api/status');
+    const data = await res.json();
+    const ids = Object.keys(data);
+    if (!ids.length) {
+      renderCards({});
+      return;
+    }
+    Object.entries(data).forEach(([id, dev]) => updateCard(id, dev.state));
+  } catch (e) {}
+}
+setInterval(syncStatus, 5000);
+
+let mediaRecorder = null;
+let audioChunks = [];
+let recording = false;
+
+async function toggleRecording() {
+  if (document.getElementById('voice-panel').classList.contains('disabled')) {
+    showToast('Önce cihaz ekleyin');
+    return;
+  }
+  if (!recording) await startRecording();
+  else stopRecording();
+}
+
+async function startRecording() {
+  const feedback = document.getElementById('feedback');
+  const micBtn = document.getElementById('mic-btn');
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+    audioChunks = [];
+    mediaRecorder.ondataavailable = e => { if (e.data.size) audioChunks.push(e.data); };
+    mediaRecorder.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop());
+      const blob = new Blob(audioChunks, { type: 'audio/webm' });
+      await sendAudio(blob);
+    };
+    mediaRecorder.start();
+    recording = true;
+    micBtn.classList.add('recording');
+    micBtn.textContent = '⏹';
+    feedback.className = '';
+    feedback.textContent = '🔴 Dinleniyor...';
+  } catch (e) {
+    feedback.className = 'err';
+    feedback.textContent = 'Mikrofon erişimi reddedildi.';
+  }
+}
+
+function stopRecording() {
+  if (mediaRecorder && recording) {
+    mediaRecorder.stop();
+    recording = false;
+    const micBtn = document.getElementById('mic-btn');
+    micBtn.classList.remove('recording');
+    micBtn.textContent = '🎙️';
+    document.getElementById('feedback').textContent = '⏳ İşleniyor...';
+  }
+}
+
+async function sendAudio(blob) {
+  const feedback = document.getElementById('feedback');
+  const formData = new FormData();
+  formData.append('audio', blob, 'command.webm');
+  try {
+    const res = await fetch('/api/voice', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (data.success) {
+      updateCard(data.device, data.state);
+      feedback.className = 'ok';
+      feedback.textContent = '✓ "' + (data.transcript || '') + '" → ' + (data.label || '') + ' ' + (data.state ? 'açıldı' : 'kapatıldı');
+      showToast((data.label || '') + ' ' + (data.state ? 'Açıldı ✓' : 'Kapatıldı ✓'));
+      return;
+    }
+    feedback.className = 'err';
+    let msg = data.message || data.error || 'Komut anlaşılamadı.';
+    if (data.detail) msg += ' (' + data.detail + ')';
+    if (data.hint) msg += ' — ' + data.hint;
+    if (data.transcript) feedback.textContent = '✗ ' + msg + ' | ' + data.transcript;
+    else feedback.textContent = '✗ ' + msg;
+  } catch (e) {
+    feedback.className = 'err';
+    feedback.textContent = 'Sunucu ile bağlantı hatası.';
+  }
+}
+
+// ── Virtual Keyboard ────────────────────────────────────────────
+const VKB_ROWS = [
+  ['1','2','3','4','5','6','7','8','9','0'],
+  ['q','w','e','r','t','y','u','i','o','p','ğ','ü'],
+  ['a','s','d','f','g','h','j','k','l','ş','i','⌫'],
+  ['CAPS','z','x','c','v','b','n','m','ö','ç','.','Tamam'],
+];
+let vkbTarget = null;
+let vkbCaps = false;
+
+function vkbInit() {
+  VKB_ROWS.forEach(function(keys, ri) {
+    const row = document.getElementById('vkb-row' + ri);
+    keys.forEach(function(k) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'vkb-key' + (k === ' ' ? ' space' : '') +
+        (['CAPS','Tamam','⌫'].includes(k) ? ' wide' : '') +
+        (['Tamam'].includes(k) ? ' action' : '');
+      btn.dataset.key = k;
+      btn.textContent = k;
+      btn.addEventListener('mousedown', function(e) { e.preventDefault(); vkbPress(k); });
+      btn.addEventListener('touchstart', function(e) { e.preventDefault(); vkbPress(k); }, {passive:false});
+      row.appendChild(btn);
+    });
+  });
+  // Boşluk tuşu
+  const spaceRow = document.getElementById('vkb-row3');
+  const spaceBtn = document.createElement('button');
+  spaceBtn.type = 'button';
+  spaceBtn.className = 'vkb-key space';
+  spaceBtn.textContent = 'Boşluk';
+  spaceBtn.addEventListener('mousedown', function(e) { e.preventDefault(); vkbPress(' '); });
+  spaceBtn.addEventListener('touchstart', function(e) { e.preventDefault(); vkbPress(' '); }, {passive:false});
+  spaceRow.appendChild(spaceBtn);
+
+  document.querySelectorAll('.field input[type=text], .field input[type=number]').forEach(function(inp) {
+    inp.addEventListener('focus', function() { vkbOpen(inp); });
+  });
+}
+
+function vkbOpen(inp) {
+  vkbTarget = inp;
+  document.getElementById('vkb-overlay').classList.add('open');
+  vkbUpdatePreview();
+}
+
+function vkbClose() {
+  document.getElementById('vkb-overlay').classList.remove('open');
+  vkbTarget = null;
+}
+
+function vkbUpdatePreview() {
+  if (!vkbTarget) return;
+  document.getElementById('vkb-preview').textContent = vkbTarget.placeholder
+    ? (vkbTarget.value || vkbTarget.placeholder)
+    : vkbTarget.value;
+  document.getElementById('vkb-preview').style.color = vkbTarget.value ? 'var(--text)' : 'var(--muted)';
+}
+
+function vkbPress(k) {
+  if (!vkbTarget) return;
+  if (k === 'Tamam') { vkbClose(); return; }
+  if (k === '⌫') {
+    vkbTarget.value = vkbTarget.value.slice(0, -1);
+    vkbTarget.dispatchEvent(new Event('input'));
+    vkbUpdatePreview(); return;
+  }
+  if (k === 'CAPS') {
+    vkbCaps = !vkbCaps;
+    document.querySelectorAll('.vkb-key').forEach(function(b) {
+      if (!['CAPS','Tamam','⌫'].includes(b.dataset.key)) {
+        b.textContent = vkbCaps ? b.dataset.key.toUpperCase() : b.dataset.key.toLowerCase();
+      }
+    });
+    return;
+  }
+  const ch = vkbCaps ? k.toUpperCase() : k.toLowerCase();
+  const maxLen = parseInt(vkbTarget.maxLength) || 999;
+  if (vkbTarget.value.length < maxLen) {
+    vkbTarget.value += ch;
+    vkbTarget.dispatchEvent(new Event('input'));
+  }
+  vkbUpdatePreview();
+}
+
+// ── Init ─────────────────────────────────────────────────────────
+(function init() {
+  initColorPickers();
+  renderCards(initialDevices);
+  vkbInit();
+})();
+</script>
+</body>
+</html>
