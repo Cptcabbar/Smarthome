@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <title>Akıllı Ev Kontrol</title>
+  <script>document.documentElement.dataset.theme = localStorage.getItem('theme') || 'gray';</script>
   <style>
     @font-face {
       font-family: "NotoEmoji";
@@ -12,22 +13,63 @@
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    :root {
-      --bg:        #0a0e1a;
-      --surface:   #111827;
-      --border:    #1e2d40;
-      --text:      #e2e8f0;
-      --muted:     #64748b;
+    /* Varsayılan tema: Koyu Gri (nötr zinc) */
+    :root, html[data-theme="gray"] {
+      --bg:        #18181b;
+      --surface:   #27272a;
+      --border:    #3f3f46;
+      --text:      #e4e4e7;
+      --muted:     #a1a1aa;
       --accent:    #38bdf8;
+      --accent-rgb: 56,189,248;
       --danger:    #f87171;
+      --danger-rgb: 248,113,113;
+      --gemini:    #a78bfa;
+      --gemini-rgb: 167,139,250;
       --radius:    20px;
-      --glow:      0 0 30px rgba(56,189,248,.25);
+      --glow:      0 0 30px rgba(var(--accent-rgb),.25);
+    }
+    html[data-theme="light"] {
+      --bg:        #f1f5f9;
+      --surface:   #ffffff;
+      --border:    #cbd5e1;
+      --text:      #0f172a;
+      --muted:     #64748b;
+      --accent:    #0284c7;
+      --accent-rgb: 2,132,199;
+      --danger:    #dc2626;
+      --danger-rgb: 220,38,38;
+      --gemini:    #7c3aed;
+      --gemini-rgb: 124,58,237;
+    }
+    html[data-theme="red"] {
+      --bg:        #18181b;
+      --surface:   #27272a;
+      --border:    #3f3f46;
+      --text:      #e4e4e7;
+      --muted:     #a1a1aa;
+      --accent:    #ef4444;
+      --accent-rgb: 239,68,68;
+      --danger:    #f87171;
+      --danger-rgb: 248,113,113;
+      --gemini:    #f97316;
+      --gemini-rgb: 249,115,22;
+    }
+    html[data-theme="green"] {
+      --bg:        #18181b;
+      --surface:   #27272a;
+      --border:    #3f3f46;
+      --text:      #e4e4e7;
+      --muted:     #a1a1aa;
+      --accent:    #22c55e;
+      --accent-rgb: 34,197,94;
+      --danger:    #f87171;
+      --danger-rgb: 248,113,113;
+      --gemini:    #14b8a6;
+      --gemini-rgb: 20,184,166;
     }
 
-    html {
-      zoom: 1.5;
-    }
-
+    html { zoom: 1.5; }
     html, body {
       height: 100%;
       background: var(--bg);
@@ -47,86 +89,75 @@
     }
 
     header {
-      padding: 20px 0 16px;
+      padding: 20px 0 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .header-top {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      border-bottom: 1px solid var(--border);
       flex-wrap: wrap;
       gap: 10px;
+      padding-bottom: 12px;
     }
-
-    .header-left h1 {
-      font-size: clamp(1.1rem, 3vw, 1.5rem);
-      font-weight: 700;
-      letter-spacing: -.02em;
-    }
-    .header-left p {
-      font-size: .75rem;
-      color: var(--muted);
-      margin-top: 2px;
-      font-family: monospace;
-    }
-
-    .header-right {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
+    .header-left h1 { font-size: clamp(1.1rem, 3vw, 1.5rem); font-weight: 700; letter-spacing: -.02em; }
+    .header-left p { font-size: .75rem; color: var(--muted); margin-top: 2px; font-family: monospace; }
+    .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     #clock {
-      font-family: monospace;
-      font-size: .9rem;
-      color: var(--accent);
-      background: rgba(56,189,248,.08);
-      border: 1px solid rgba(56,189,248,.2);
-      padding: 6px 14px;
-      border-radius: 50px;
+      font-family: monospace; font-size: .9rem; color: var(--accent);
+      background: rgba(var(--accent-rgb),.08); border: 1px solid rgba(var(--accent-rgb),.2);
+      padding: 6px 14px; border-radius: 50px;
     }
 
-    .btn-primary {
-      background: rgba(56,189,248,.12);
-      border: 1px solid rgba(56,189,248,.35);
-      color: var(--accent);
-      padding: 6px 14px;
-      border-radius: 50px;
+    /* Tab nav */
+    .tab-nav {
+      display: flex;
+      gap: 4px;
+      padding-bottom: 0;
+    }
+    .tab-btn {
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--muted);
+      padding: 8px 14px;
       font-family: system-ui, sans-serif;
       font-size: .8rem;
       font-weight: 600;
       cursor: pointer;
-      transition: all .2s;
+      transition: color .2s, border-color .2s;
     }
-    .btn-primary:hover { background: rgba(56,189,248,.2); }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-btn:hover:not(.active) { color: var(--text); }
+
+    .btn-primary {
+      background: rgba(var(--accent-rgb),.12); border: 1px solid rgba(var(--accent-rgb),.35);
+      color: var(--accent); padding: 6px 14px; border-radius: 50px;
+      font-family: system-ui, sans-serif; font-size: .8rem; font-weight: 600;
+      cursor: pointer; transition: all .2s;
+    }
+    .btn-primary:hover { background: rgba(var(--accent-rgb),.2); }
     .btn-primary:active { transform: scale(.95); }
 
     .all-off-btn {
-      background: rgba(248,113,113,.08);
-      border: 1px solid rgba(248,113,113,.25);
-      color: var(--danger);
-      padding: 6px 14px;
-      border-radius: 50px;
-      font-family: system-ui, sans-serif;
-      font-size: .8rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all .2s;
+      background: rgba(var(--danger-rgb),.08); border: 1px solid rgba(var(--danger-rgb),.25);
+      color: var(--danger); padding: 6px 14px; border-radius: 50px;
+      font-family: system-ui, sans-serif; font-size: .8rem; font-weight: 600;
+      cursor: pointer; transition: all .2s;
     }
-    .all-off-btn:hover { background: rgba(248,113,113,.15); }
+    .all-off-btn:hover { background: rgba(var(--danger-rgb),.15); }
     .all-off-btn:disabled { opacity: .4; cursor: not-allowed; }
     .all-off-btn:active:not(:disabled) { transform: scale(.95); }
 
+    /* Tab panels */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: contents; }
+
     .empty-state {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 32px 20px;
-      gap: 16px;
-      min-height: 200px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 32px 20px; gap: 16px; min-height: 200px;
     }
-    .empty-state h2 { font-size: 1.1rem; font-weight: 600; color: var(--text); }
+    .empty-state h2 { font-size: 1.1rem; font-weight: 600; }
     .empty-state p { font-size: .85rem; color: var(--muted); max-width: 280px; line-height: 1.5; }
 
     .grid {
@@ -139,110 +170,50 @@
     }
 
     .card {
-      background: var(--surface);
-      border: 2px solid var(--border);
-      border-radius: var(--radius);
-      padding: 22px 16px 18px;
-      cursor: pointer;
+      background: var(--surface); border: 2px solid var(--border); border-radius: var(--radius);
+      padding: 22px 16px 18px; cursor: pointer;
       transition: border-color .25s, box-shadow .25s, transform .15s;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 12px;
-      position: relative;
-      overflow: hidden;
-      user-select: none;
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
+      position: relative; overflow: hidden; user-select: none;
     }
-
     .card::before {
-      content: '';
-      position: absolute;
-      inset: 0;
+      content: ''; position: absolute; inset: 0;
       background: radial-gradient(ellipse at top, var(--card-color, #fff) 0%, transparent 70%);
-      opacity: 0;
-      transition: opacity .3s;
+      opacity: 0; transition: opacity .3s;
     }
-
     .card.active {
       border-color: var(--card-color, var(--accent));
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--card-color, var(--accent)) 20%, transparent),
-                  var(--glow);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--card-color, var(--accent)) 20%, transparent), var(--glow);
     }
     .card.active::before { opacity: .06; }
     .card:active { transform: scale(.96); }
 
     .card-delete {
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      border: 1px solid var(--border);
-      background: var(--bg);
-      color: var(--muted);
-      font-size: 1rem;
-      line-height: 1;
-      cursor: pointer;
-      display: grid;
-      place-items: center;
-      opacity: 1;
-      transition: color .2s, border-color .2s, background .2s;
-      z-index: 2;
+      position: absolute; top: 8px; right: 8px; width: 36px; height: 36px;
+      border-radius: 50%; border: 1px solid var(--border); background: var(--bg);
+      color: var(--muted); font-size: 1rem; cursor: pointer; display: grid; place-items: center;
+      transition: color .2s, border-color .2s, background .2s; z-index: 2;
     }
-    .card-delete:hover, .card-delete:active { color: var(--danger); border-color: var(--danger); background: rgba(248,113,113,.1); }
+    .card-delete:hover, .card-delete:active { color: var(--danger); border-color: var(--danger); background: rgba(var(--danger-rgb),.1); }
 
     .card-kw-spinner {
-      position: absolute;
-      top: 8px;
-      left: 8px;
-      font-size: .6rem;
-      font-family: monospace;
-      color: #fb923c;
-      background: rgba(251,146,60,.1);
-      border: 1px solid rgba(251,146,60,.3);
-      padding: 2px 6px;
-      border-radius: 4px;
-      animation: blink 1.4s ease-in-out infinite;
+      position: absolute; top: 8px; left: 8px; font-size: .6rem; font-family: monospace;
+      color: #fb923c; background: rgba(251,146,60,.1); border: 1px solid rgba(251,146,60,.3);
+      padding: 2px 6px; border-radius: 4px; animation: blink 1.4s ease-in-out infinite;
     }
     @keyframes blink { 0%,100% { opacity:1 } 50% { opacity:.4 } }
 
     .card-mqtt {
-      position: absolute;
-      bottom: 8px;
-      left: 8px;
-      font-size: .6rem;
-      font-family: monospace;
-      color: #4ade80;
-      background: rgba(74,222,128,.1);
-      border: 1px solid rgba(74,222,128,.25);
-      padding: 2px 6px;
-      border-radius: 4px;
-      max-width: calc(100% - 16px);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      position: absolute; bottom: 8px; left: 8px; font-size: .6rem; font-family: monospace;
+      color: #4ade80; background: rgba(74,222,128,.1); border: 1px solid rgba(74,222,128,.25);
+      padding: 2px 6px; border-radius: 4px; max-width: calc(100% - 16px);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-
-    .card-icon {
-      font-size: 2.4rem;
-      line-height: 1;
-      filter: grayscale(1) opacity(.4);
-      transition: filter .3s;
-    }
+    .card-icon { font-size: 2.4rem; line-height: 1; filter: grayscale(1) opacity(.4); transition: filter .3s; }
     .card.active .card-icon { filter: none; }
-
-    .card-label {
-      font-weight: 600;
-      font-size: .9rem;
-      text-align: center;
-    }
-
+    .card-label { font-weight: 600; font-size: .9rem; text-align: center; }
     .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--muted);
+      width: 8px; height: 8px; border-radius: 50%; background: var(--muted);
       transition: background .3s, box-shadow .3s;
     }
     .card.active .status-dot {
@@ -250,336 +221,539 @@
       box-shadow: 0 0 8px var(--card-color, var(--accent));
     }
 
+    /* Voice panel */
     .voice-panel {
-      padding: 14px 0 20px;
-      border-top: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 12px;
+      padding: 14px 0 20px; border-top: 1px solid var(--border);
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
     }
     .voice-panel.disabled { opacity: .45; pointer-events: none; }
+    .voice-row { display: flex; align-items: stretch; gap: 14px; width: 100%; max-width: 600px; }
 
-    .voice-row {
-      display: flex;
-      align-items: center;
-      gap: 16px;
+    .mode-block { display: flex; align-items: stretch; gap: 6px; flex: 1; min-width: 0; }
+    .mode-btn {
+      flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 10px;
+      padding: 16px 18px; border-radius: 16px; cursor: pointer; transition: all .2s;
+      border: 2px solid var(--border); background: var(--surface); color: var(--text);
+      font-family: system-ui, sans-serif; position: relative;
     }
+    .mode-btn:active { transform: scale(.97); }
+    .mode-icon { font-size: 1.5rem; line-height: 1; font-family: "NotoEmoji", system-ui, sans-serif; }
+    .mode-label { font-size: .9rem; font-weight: 600; }
 
-    .mic-btn {
-      width: 64px;
-      height: 64px;
-      border-radius: 50%;
-      border: none;
-      background: var(--surface);
-      border: 2px solid var(--border);
-      font-size: 1.6rem;
-      cursor: pointer;
-      display: grid;
-      place-items: center;
-      transition: all .2s;
-      position: relative;
-    }
-
-    .mic-btn.recording {
+    /* Hızlı Komut (Whisper) */
+    .mode-btn.fast.recording {
       border-color: var(--danger);
-      box-shadow: 0 0 0 6px rgba(248,113,113,.2);
+      box-shadow: 0 0 0 4px rgba(var(--danger-rgb),.18);
       animation: pulse 1.2s ease-in-out infinite;
     }
     @keyframes pulse {
-      0%, 100% { box-shadow: 0 0 0 4px rgba(248,113,113,.2); }
-      50%       { box-shadow: 0 0 0 10px rgba(248,113,113,.05); }
+      0%, 100% { box-shadow: 0 0 0 3px rgba(var(--danger-rgb),.18); }
+      50%       { box-shadow: 0 0 0 8px rgba(var(--danger-rgb),.05); }
     }
 
-    .mic-btn:active { transform: scale(.93); }
-
-    .voice-hint {
-      font-size: .8rem;
-      color: var(--muted);
-      text-align: center;
-      max-width: 260px;
-      line-height: 1.5;
+    /* Sohbet (Gemini Live) durumları */
+    .mode-btn.chat { border-color: rgba(var(--gemini-rgb),.35); color: var(--gemini); }
+    .mode-btn.chat:hover { background: rgba(var(--gemini-rgb),.10); }
+    .mode-btn.chat.listening {
+      border-color: var(--danger); color: var(--danger);
+      box-shadow: 0 0 0 4px rgba(var(--danger-rgb),.18);
+      animation: pulse 1.6s ease-in-out infinite;
     }
+    .mode-btn.chat.processing {
+      border-color: var(--gemini); color: var(--gemini);
+      box-shadow: 0 0 0 4px rgba(var(--gemini-rgb),.18);
+    }
+    .mode-btn.chat.speaking {
+      border-color: #22c55e; color: #22c55e;
+      box-shadow: 0 0 0 5px rgba(34,197,94,.18);
+      animation: green-pulse 1.4s ease-in-out infinite;
+    }
+    @keyframes green-pulse {
+      0%, 100% { box-shadow: 0 0 0 4px rgba(34,197,94,.18); }
+      50%       { box-shadow: 0 0 0 10px rgba(34,197,94,.05); }
+    }
+    .mode-btn.chat.processing .mode-icon {
+      display: inline-block; width: 1.3rem; height: 1.3rem; border: 3px solid rgba(var(--gemini-rgb),.3);
+      border-top-color: var(--gemini); border-radius: 50%; animation: spin .8s linear infinite; font-size: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
+    .info-btn {
+      width: 30px; height: 30px; flex-shrink: 0; align-self: center; border-radius: 50%;
+      border: 1px solid var(--border); background: var(--bg); color: var(--muted);
+      font-size: .9rem; cursor: pointer; display: grid; place-items: center; transition: all .15s;
+    }
+    .info-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+    .voice-hint { font-size: .8rem; color: var(--muted); text-align: center; max-width: 260px; line-height: 1.5; }
     #feedback {
-      font-family: monospace;
-      font-size: .78rem;
-      color: var(--muted);
-      text-align: center;
-      min-height: 18px;
-      transition: color .3s;
-      max-width: 100%;
-      word-break: break-word;
+      font-family: monospace; font-size: .78rem; color: var(--muted);
+      text-align: center; min-height: 18px; transition: color .3s; max-width: 100%; word-break: break-word;
     }
     #feedback.ok  { color: #4ade80; }
     #feedback.err { color: var(--danger); }
+    #live-status { font-family: monospace; font-size: .75rem; color: var(--gemini); text-align: center; min-height: 16px; }
 
-    .grid::-webkit-scrollbar { width: 4px; }
-    .grid::-webkit-scrollbar-track { background: transparent; }
-    .grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    /* Automations tab */
+    .auto-list {
+      padding: 20px 0; display: flex; flex-direction: column; gap: 10px;
+      overflow-y: auto;
+    }
+    .auto-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 14px 16px; display: flex; align-items: center; gap: 14px;
+    }
+    .auto-card .auto-time {
+      font-family: monospace; font-size: 1.3rem; font-weight: 700; color: var(--accent);
+      min-width: 52px; text-align: center;
+    }
+    .auto-card .auto-info { flex: 1; min-width: 0; }
+    .auto-card .auto-name { font-weight: 600; font-size: .9rem; margin-bottom: 3px; }
+    .auto-card .auto-meta { font-size: .72rem; color: var(--muted); font-family: monospace; }
+    .auto-card .auto-days { font-size: .7rem; color: var(--muted); margin-top: 3px; }
+    .auto-actions { display: flex; gap: 8px; align-items: center; }
+    .toggle-switch {
+      position: relative; width: 42px; height: 24px; flex-shrink: 0;
+    }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; cursor: pointer; inset: 0;
+      background: var(--border); border-radius: 24px; transition: background .2s;
+    }
+    .toggle-slider::before {
+      content: ''; position: absolute; width: 18px; height: 18px; border-radius: 50%;
+      background: var(--muted); left: 3px; top: 3px; transition: transform .2s, background .2s;
+    }
+    .toggle-switch input:checked + .toggle-slider { background: rgba(var(--accent-rgb),.25); }
+    .toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); background: var(--accent); }
+    .btn-icon {
+      width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border);
+      background: var(--bg); color: var(--muted); font-size: .9rem; cursor: pointer;
+      display: grid; place-items: center; transition: color .2s, background .2s, border-color .2s;
+    }
+    .btn-icon:hover { color: var(--text); border-color: var(--muted); }
+    .btn-icon.del:hover { color: var(--danger); border-color: var(--danger); background: rgba(var(--danger-rgb),.1); }
 
+    .auto-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 40px 20px; text-align: center; min-height: 200px; }
+    .auto-empty p { font-size: .85rem; color: var(--muted); max-width: 260px; line-height: 1.5; }
+
+    /* Akıllı öneriler */
+    .section-header { display: flex; align-items: baseline; gap: 10px; margin: 14px 0 8px; flex-wrap: wrap; }
+    .section-title { font-size: .85rem; font-weight: 700; color: var(--text); }
+    .section-title.gemini { color: var(--gemini); }
+    .section-hint { font-size: .68rem; color: var(--muted); }
+    /* Öneriler ayrı, vurgulu bir panel içinde */
+    .suggest-section {
+      background: rgba(var(--gemini-rgb),.06);
+      border: 1px solid rgba(var(--gemini-rgb),.25);
+      border-radius: 16px; padding: 10px 14px 14px; margin-top: 14px;
+    }
+    .suggest-section .section-header { margin-top: 4px; }
+    .suggest-list { display: flex; flex-direction: column; gap: 8px; }
+    .suggest-card {
+      background: linear-gradient(135deg, rgba(var(--gemini-rgb),.08), var(--surface));
+      border: 1px solid rgba(var(--gemini-rgb),.3); border-radius: 14px;
+      padding: 12px 14px; display: flex; align-items: center; gap: 12px;
+    }
+    .suggest-card .suggest-time {
+      font-family: monospace; font-size: 1.15rem; font-weight: 700; color: var(--gemini);
+      min-width: 50px; text-align: center;
+    }
+    .suggest-info { flex: 1; min-width: 0; }
+    .suggest-name { font-weight: 600; font-size: .88rem; margin-bottom: 2px; }
+    .suggest-meta { font-size: .7rem; color: var(--muted); font-family: monospace; }
+    .suggest-reason { font-size: .72rem; color: var(--muted); margin-top: 3px; font-style: italic; }
+    .suggest-actions { display: flex; gap: 6px; }
+    .suggest-btn {
+      width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border);
+      background: var(--bg); font-size: .9rem; cursor: pointer; display: grid; place-items: center;
+      transition: all .15s;
+    }
+    .suggest-btn.accept { color: #4ade80; border-color: rgba(74,222,128,.4); }
+    .suggest-btn.accept:hover { background: rgba(74,222,128,.12); }
+    .suggest-btn.dismiss { color: var(--muted); }
+    .suggest-btn.dismiss:hover { color: var(--danger); border-color: var(--danger); }
+
+    /* WiFi tab — no scroll, fixed layout */
+    .wifi-tab {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 10px;
+      padding: 12px 0 0;
+      height: 100%;
+      overflow: hidden;
+    }
+    .wifi-top-row { display: flex; gap: 10px; align-items: stretch; }
+    .wifi-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px;
+    }
+    .wifi-card h4 { font-size: .65rem; color: var(--muted); font-family: monospace; margin-bottom: 8px; text-transform: uppercase; letter-spacing: .05em; }
+    .wifi-current { display: flex; align-items: center; gap: 10px; }
+    .wifi-ssid { font-size: .92rem; font-weight: 700; }
+    .wifi-meta { font-size: .7rem; color: var(--muted); font-family: monospace; margin-top: 2px; }
+    .signal-bar { display: flex; align-items: flex-end; gap: 2px; height: 16px; flex-shrink: 0; }
+    .signal-bar span { width: 4px; background: var(--border); border-radius: 2px; }
+    .signal-bar span.lit { background: var(--accent); }
+
+    /* Network list with pagination */
+    .wifi-net-section { display: flex; flex-direction: column; min-height: 0; }
+    .wifi-net-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .wifi-net-header h4 { margin: 0; flex: 1; }
+    .wifi-page-btn {
+      width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border);
+      background: var(--bg); color: var(--muted); font-size: .85rem; cursor: pointer;
+      display: grid; place-items: center; transition: all .15s; flex-shrink: 0;
+    }
+    .wifi-page-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+    .wifi-page-btn:disabled { opacity: .3; cursor: not-allowed; }
+    .wifi-page-indicator { font-size: .68rem; color: var(--muted); font-family: monospace; white-space: nowrap; }
+    .wifi-net-list { display: flex; flex-direction: column; gap: 5px; }
+    .wifi-net-item {
+      display: flex; align-items: center; gap: 10px; padding: 9px 11px;
+      border: 1px solid var(--border); border-radius: 10px; background: var(--bg);
+      cursor: pointer; transition: border-color .15s, background .15s;
+    }
+    .wifi-net-item:hover { border-color: var(--accent); background: rgba(var(--accent-rgb),.05); }
+    .wifi-net-item.active-net { border-color: rgba(74,222,128,.4); background: rgba(74,222,128,.05); }
+    .wifi-net-ssid { flex: 1; font-size: .85rem; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .wifi-net-meta { font-size: .68rem; color: var(--muted); font-family: monospace; white-space: nowrap; }
+    .wifi-scan-empty { font-size: .8rem; color: var(--muted); text-align: center; padding: 14px 0; }
+
+    /* Bottom row */
+    .wifi-bottom-row { display: flex; gap: 10px; }
+    .wifi-ip-card { flex: 1; }
+    .wifi-ip-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .wifi-ip-row > label:not(.toggle-switch) { font-size: .82rem; flex: 1; }
+    .wifi-ip-input { width: 100%; }
+    .wifi-ip-msg { font-size:.72rem; font-family:monospace; margin-top:6px; display:none; }
+    .wifi-restart-btn {
+      width: 100%; padding: 10px 14px; border-radius: 12px;
+      background: rgba(var(--danger-rgb),.08); border: 1px solid rgba(var(--danger-rgb),.25);
+      color: var(--danger); font-family: system-ui, sans-serif; font-size: .82rem;
+      font-weight: 600; cursor: pointer; transition: all .2s; white-space: nowrap;
+    }
+    .wifi-restart-btn:hover { background: rgba(var(--danger-rgb),.15); }
+    .wifi-sys-card { display: flex; flex-direction: column; gap: 6px; justify-content: center; }
+
+    /* Settings tab */
+    .settings-tab { padding: 16px 0; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; }
+    .settings-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
+    .settings-card h4 { font-size: .72rem; color: var(--muted); font-family: monospace; margin-bottom: 12px; text-transform: uppercase; letter-spacing: .05em; }
+    .theme-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .theme-card {
+      display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+      border: 2px solid var(--border); border-radius: 12px; background: var(--bg);
+      cursor: pointer; transition: border-color .15s; color: var(--text);
+      font-family: system-ui, sans-serif;
+    }
+    .theme-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(var(--accent-rgb),.25); }
+    .theme-swatch { width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0; border: 1px solid var(--border); }
+    .theme-name { font-size: .85rem; font-weight: 600; }
+    .settings-input {
+      flex: 1; min-width: 0; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border);
+      background: var(--bg); color: var(--text); font-family: monospace; font-size: .85rem;
+    }
+    .settings-input:focus { outline: none; border-color: var(--accent); }
+
+    /* Scrollbars */
+    .grid::-webkit-scrollbar, .auto-list::-webkit-scrollbar { width: 4px; }
+    .grid::-webkit-scrollbar-track, .auto-list::-webkit-scrollbar-track { background: transparent; }
+    .grid::-webkit-scrollbar-thumb, .auto-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* Toast */
     .toast {
-      position: fixed;
-      bottom: 110px;
-      left: 50%;
+      position: fixed; bottom: 110px; left: 50%;
       transform: translateX(-50%) translateY(20px);
-      background: #1e293b;
-      border: 1px solid var(--border);
-      color: var(--text);
-      padding: 10px 22px;
-      border-radius: 50px;
-      font-size: .85rem;
-      opacity: 0;
-      transition: all .3s;
-      pointer-events: none;
-      white-space: nowrap;
-      z-index: 99;
+      background: #1e293b; border: 1px solid var(--border);
+      color: var(--text); padding: 10px 22px; border-radius: 50px;
+      font-size: .85rem; opacity: 0; transition: all .3s;
+      pointer-events: none; white-space: nowrap; z-index: 99;
     }
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+    /* Modals */
     .modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,.65);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-      padding: 16px;
+      position: fixed; inset: 0; background: rgba(0,0,0,.65);
+      display: none; align-items: center; justify-content: center; z-index: 100; padding: 16px;
     }
     .modal-overlay.open { display: flex; }
-
     .modal {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 22px;
-      width: 100%;
-      max-width: 520px;
-      box-shadow: 0 20px 50px rgba(0,0,0,.45);
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 22px; width: 100%; max-width: 520px; box-shadow: 0 20px 50px rgba(0,0,0,.45);
     }
     .modal h3 { font-size: 1.05rem; margin-bottom: 14px; }
     .field { margin-bottom: 12px; }
-    .field label {
-      display: block;
-      font-size: .72rem;
-      color: var(--muted);
-      margin-bottom: 4px;
-      font-family: monospace;
+    .field label { display: block; font-size: .72rem; color: var(--muted); margin-bottom: 4px; font-family: monospace; }
+    .field input, .field select {
+      width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border);
+      background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; font-size: .9rem;
     }
-    .field input {
-      width: 100%;
-      padding: 10px 12px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      background: var(--bg);
-      color: var(--text);
-      font-family: system-ui, sans-serif;
-      font-size: .9rem;
-    }
-    .field input:focus { outline: none; border-color: var(--accent); }
+    .field input:focus, .field select:focus { outline: none; border-color: var(--accent); }
+    .field select option { background: var(--bg); }
     .field-color .color-swatches {
-      display: flex;
-      flex-wrap: nowrap;
-      gap: 8px;
-      margin-top: 6px;
-      overflow-x: auto;
-      padding-bottom: 4px;
-      -webkit-overflow-scrolling: touch;
+      display: flex; flex-wrap: nowrap; gap: 8px; margin-top: 6px;
+      overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch;
     }
     .color-swatch {
-      flex-shrink: 0;
-      width: 34px;
-      height: 34px;
-      border-radius: 10px;
-      border: 2px solid var(--border);
-      cursor: pointer;
-      padding: 0;
+      flex-shrink: 0; width: 34px; height: 34px; border-radius: 10px;
+      border: 2px solid var(--border); cursor: pointer; padding: 0;
       transition: transform .15s, box-shadow .2s;
-      box-sizing: border-box;
     }
     .color-swatch:hover { transform: scale(1.06); }
-    .color-swatch.selected {
-      box-shadow: 0 0 0 2px var(--accent), 0 0 12px rgba(56,189,248,.35);
-      border-color: rgba(56,189,248,.6);
-    }
-    .color-custom {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-top: 10px;
-    }
-    .color-custom input[type="color"] {
-      width: 52px;
-      height: 44px;
-      padding: 2px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      cursor: pointer;
-      background: var(--bg);
-    }
+    .color-swatch.selected { box-shadow: 0 0 0 2px var(--accent), 0 0 12px rgba(var(--accent-rgb),.35); border-color: rgba(var(--accent-rgb),.6); }
+    .color-custom { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+    .color-custom input[type="color"] { width: 52px; height: 44px; padding: 2px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; background: var(--bg); }
     .color-custom input[type="color"]::-webkit-color-swatch-wrapper { padding: 3px; }
     .color-custom input[type="color"]::-webkit-color-swatch { border: none; border-radius: 6px; }
-    .color-custom .field-hex {
-      flex: 1;
-      min-width: 0;
-      font-family: monospace;
-      font-size: .85rem;
-    }
-
+    .color-custom .field-hex { flex: 1; min-width: 0; font-family: monospace; font-size: .85rem; }
     .emoji-picker {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 6px;
-      max-height: 160px;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 8px;
+      display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px;
+      max-height: 160px; overflow-y: auto; -webkit-overflow-scrolling: touch;
+      background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 8px;
     }
     .emoji-btn {
-      width: 44px;
-      height: 44px;
-      border: 2px solid transparent;
-      border-radius: 10px;
-      background: var(--surface);
-      font-size: 1.4rem;
-      cursor: pointer;
-      display: grid;
-      place-items: center;
-      transition: border-color .15s, background .15s;
-      font-family: "NotoEmoji", system-ui, sans-serif;
+      width: 44px; height: 44px; border: 2px solid transparent; border-radius: 10px;
+      background: var(--surface); font-size: 1.4rem; cursor: pointer; display: grid; place-items: center;
+      transition: border-color .15s, background .15s; font-family: "NotoEmoji", system-ui, sans-serif;
     }
     .emoji-btn:hover, .emoji-btn:active { background: var(--border); }
-    .emoji-btn.selected { border-color: var(--accent); background: rgba(56,189,248,.1); }
-    .modal-actions {
-      display: flex;
-      gap: 10px;
-      justify-content: flex-end;
-      margin-top: 18px;
-    }
+    .emoji-btn.selected { border-color: var(--accent); background: rgba(var(--accent-rgb),.1); }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
     .btn-ghost {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--muted);
-      padding: 8px 16px;
-      border-radius: 50px;
-      cursor: pointer;
-      font-family: system-ui, sans-serif;
-      font-size: .85rem;
+      background: transparent; border: 1px solid var(--border); color: var(--muted);
+      padding: 8px 16px; border-radius: 50px; cursor: pointer; font-family: system-ui, sans-serif; font-size: .85rem;
     }
     .btn-ghost:hover { color: var(--text); border-color: var(--muted); }
     .btn-save {
-      background: rgba(56,189,248,.15);
-      border: 1px solid rgba(56,189,248,.4);
-      color: var(--accent);
-      padding: 8px 18px;
-      border-radius: 50px;
-      cursor: pointer;
-      font-family: system-ui, sans-serif;
-      font-weight: 600;
-      font-size: .85rem;
+      background: rgba(var(--accent-rgb),.15); border: 1px solid rgba(var(--accent-rgb),.4); color: var(--accent);
+      padding: 8px 18px; border-radius: 50px; cursor: pointer; font-family: system-ui, sans-serif;
+      font-weight: 600; font-size: .85rem;
     }
     .btn-save:disabled { opacity: .5; cursor: not-allowed; }
 
-    #vkb-overlay {
-      position: fixed;
-      inset: 0;
-      z-index: 200;
-      display: none;
-      flex-direction: column;
-      justify-content: flex-end;
+    /* Day picker */
+    .day-picker { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
+    .day-btn {
+      width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border);
+      background: var(--bg); color: var(--muted); font-size: .72rem; font-weight: 600;
+      cursor: pointer; display: grid; place-items: center; transition: all .15s;
     }
+    .day-btn.selected { background: rgba(var(--accent-rgb),.15); border-color: var(--accent); color: var(--accent); }
+
+    /* Radio group */
+    .radio-group { display: flex; gap: 10px; margin-top: 6px; }
+    .radio-btn {
+      flex: 1; padding: 8px; border-radius: 10px; border: 1px solid var(--border);
+      background: var(--bg); color: var(--muted); cursor: pointer; text-align: center;
+      font-size: .85rem; font-weight: 600; transition: all .15s; font-family: system-ui, sans-serif;
+    }
+    .radio-btn.selected { border-color: var(--accent); background: rgba(var(--accent-rgb),.1); color: var(--accent); }
+
+    /* Virtual keyboard */
+    #vkb-overlay { position: fixed; inset: 0; z-index: 200; display: none; flex-direction: column; justify-content: flex-end; }
     #vkb-overlay.open { display: flex; }
-    #vkb-backdrop {
-      flex: 1;
-    }
-    #vkb {
-      background: #1a2235;
-      border-top: 1px solid var(--border);
-      padding: 6px 4px 10px;
-      user-select: none;
-    }
-    .vkb-input-preview {
-      background: var(--bg);
-      border: 1px solid var(--accent);
-      border-radius: 8px;
-      padding: 6px 10px;
-      font-size: .9rem;
-      color: var(--text);
-      margin-bottom: 6px;
-      min-height: 34px;
-      word-break: break-all;
-    }
-    .vkb-row {
-      display: flex;
-      justify-content: center;
-      gap: 3px;
-      margin-bottom: 4px;
-    }
+    #vkb-backdrop { flex: 1; }
+    #vkb { background: #1a2235; border-top: 1px solid var(--border); padding: 6px 4px 10px; user-select: none; }
+    .vkb-input-preview { background: var(--bg); border: 1px solid var(--accent); border-radius: 8px; padding: 6px 10px; font-size: .9rem; color: var(--text); margin-bottom: 6px; min-height: 34px; word-break: break-all; }
+    .vkb-row { display: flex; justify-content: center; gap: 3px; margin-bottom: 4px; }
     .vkb-key {
-      height: 44px;
-      flex: 1;
-      min-width: 0;
-      border-radius: 7px;
-      border: 1px solid #2a3a50;
-      background: #243044;
-      color: var(--text);
-      font-size: .85rem;
-      cursor: pointer;
-      display: grid;
-      place-items: center;
-      transition: background .1s;
-      -webkit-tap-highlight-color: transparent;
-      padding: 0;
+      height: 44px; flex: 1; min-width: 0; border-radius: 7px; border: 1px solid #2a3a50;
+      background: #243044; color: var(--text); font-size: .85rem; cursor: pointer;
+      display: grid; place-items: center; transition: background .1s; -webkit-tap-highlight-color: transparent; padding: 0;
     }
     .vkb-key:active { background: #38bdf8; color: #000; }
     .vkb-key.wide { flex: 1.6; font-size: .75rem; }
     .vkb-key.space { flex: 4; }
-    .vkb-key.action { background: rgba(56,189,248,.2); border-color: rgba(56,189,248,.4); color: var(--accent); }
+    .vkb-key.action { background: rgba(var(--accent-rgb),.2); border-color: rgba(var(--accent-rgb),.4); color: var(--accent); }
   </style>
 </head>
 <body>
 <div class="app">
 
   <header>
-    <div class="header-left">
-      <h1>🏠 Akıllı Ev Kontrolü</h1>
-      <p id="clock-sub">{% if use_gpio %}Raspberry Pi · GPIO aktif{% else %}Simülasyon modu · GPIO yok{% endif %}</p>
+    <div class="header-top">
+      <div class="header-left">
+        <h1>🏠 Akıllı Ev Kontrolü</h1>
+        <p id="clock-sub">{% if use_gpio %}Raspberry Pi · GPIO aktif{% else %}Simülasyon modu · GPIO yok{% endif %}</p>
+      </div>
+      <div class="header-right">
+        <div id="clock">--:--</div>
+        <button type="button" class="btn-primary" id="btn-add" onclick="openAddModal()">＋ Cihaz Ekle</button>
+        <button type="button" class="all-off-btn" id="all-off-btn" onclick="allOff()">⏹ Tümünü Kapat</button>
+      </div>
     </div>
-    <div class="header-right">
-      <div id="clock">--:--</div>
-      <button type="button" class="btn-primary" onclick="openAddModal()">＋ Cihaz Ekle</button>
-      <button type="button" class="all-off-btn" id="all-off-btn" onclick="allOff()">⏹ Tümünü Kapat</button>
+    <div class="tab-nav">
+      <button class="tab-btn active" id="tab-btn-devices" onclick="switchTab('devices')">📱 Cihazlar</button>
+      <button class="tab-btn" id="tab-btn-automations" onclick="switchTab('automations')">⏰ Otomasyonlar</button>
+      <button class="tab-btn" id="tab-btn-wifi" onclick="switchTab('wifi')">🌐 WiFi</button>
+      <button class="tab-btn" id="tab-btn-settings" onclick="switchTab('settings')">⚙️ Ayarlar</button>
     </div>
   </header>
 
-  <div id="empty-state" class="empty-state" style="display: none;">
-    <h2>Lütfen cihaz ekleyin</h2>
-    <p>Akıllı ev kontrolü için önce en az bir cihaz tanımlayın. İkon, renk ve anahtar kelimeler otomatik oluşturulur (Ollama).</p>
-    <button type="button" class="btn-primary" onclick="openAddModal()">Cihaz Ekle</button>
+  <!-- Devices tab -->
+  <div id="tab-devices">
+    <div id="empty-state" class="empty-state" style="display: none;">
+      <h2>Lütfen cihaz ekleyin</h2>
+      <p>Akıllı ev kontrolü için önce en az bir cihaz tanımlayın. İkon, renk ve anahtar kelimeler otomatik oluşturulur.</p>
+      <button type="button" class="btn-primary" onclick="openAddModal()">Cihaz Ekle</button>
+    </div>
+    <div class="grid" id="device-grid" style="display: none;"></div>
   </div>
 
-  <div class="grid" id="device-grid" style="display: none;"></div>
+  <!-- WiFi tab -->
+  <div id="tab-wifi" style="display: none; height: 100%; overflow: hidden;">
+    <div class="wifi-tab">
+
+      <!-- Üst: mevcut bağlantı + tara butonu -->
+      <div class="wifi-top-row">
+        <div class="wifi-card" style="flex:1">
+          <h4>Bağlantı</h4>
+          <div class="wifi-current">
+            <div class="signal-bar" id="wifi-signal-bar">
+              <span style="height:4px"></span><span style="height:8px"></span>
+              <span style="height:12px"></span><span style="height:16px"></span>
+            </div>
+            <div style="min-width:0">
+              <div class="wifi-ssid" id="wifi-current-ssid">—</div>
+              <div class="wifi-meta" id="wifi-current-meta">Yükleniyor…</div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center">
+          <button class="btn-primary" id="wifi-scan-btn" onclick="scanWifi()">🔍 Tara</button>
+        </div>
+      </div>
+
+      <!-- Orta: ağ listesi + sayfalama -->
+      <div class="wifi-card wifi-net-section">
+        <div class="wifi-net-header">
+          <h4>Ağlar</h4>
+          <button class="wifi-page-btn" id="wifi-prev-btn" onclick="wifiPage(-1)" disabled>‹</button>
+          <span class="wifi-page-indicator" id="wifi-page-ind"></span>
+          <button class="wifi-page-btn" id="wifi-next-btn" onclick="wifiPage(1)" disabled>›</button>
+        </div>
+        <div id="wifi-net-list" class="wifi-net-list">
+          <div class="wifi-scan-empty">Taramak için "Tara" butonuna basın.</div>
+        </div>
+      </div>
+
+      <!-- Alt: IP ayarları + yeniden başlat -->
+      <div class="wifi-bottom-row">
+        <div class="wifi-card wifi-ip-card">
+          <h4>IP Ayarları</h4>
+          <div class="wifi-ip-row">
+            <label for="wifi-custom-chk">Özel IP</label>
+            <label class="toggle-switch">
+              <input type="checkbox" id="wifi-custom-chk" onchange="toggleCustomIp(this.checked)" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div id="wifi-ip-box" style="display:none;margin-bottom:8px">
+            <input type="text" id="wifi-ip-input" class="wifi-ip-input field input" placeholder="192.168.1.200" maxlength="15" autocomplete="off" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:.85rem" />
+            <p style="font-size:.65rem;color:var(--muted);margin-top:3px">Subnet /24 · GW 192.168.1.1</p>
+          </div>
+          <button class="btn-primary" onclick="applyIpConfig()">Uygula</button>
+          <div id="wifi-ip-msg" class="wifi-ip-msg"></div>
+        </div>
+        <div class="wifi-card wifi-sys-card">
+          <h4>Sistem</h4>
+          <button class="wifi-restart-btn" onclick="restartService()">🔄 Yeniden Başlat</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Settings tab -->
+  <div id="tab-settings" style="display: none; overflow-y: auto;">
+    <div class="settings-tab">
+      <div class="settings-card">
+        <h4>Tema</h4>
+        <div class="theme-grid" id="theme-grid">
+          <button type="button" class="theme-card" data-theme-name="gray" onclick="applyTheme('gray')">
+            <span class="theme-swatch" style="background:linear-gradient(135deg,#18181b 50%,#38bdf8 50%)"></span>
+            <span class="theme-name">Koyu Gri</span>
+          </button>
+          <button type="button" class="theme-card" data-theme-name="light" onclick="applyTheme('light')">
+            <span class="theme-swatch" style="background:linear-gradient(135deg,#ffffff 50%,#0284c7 50%)"></span>
+            <span class="theme-name">Açık</span>
+          </button>
+          <button type="button" class="theme-card" data-theme-name="red" onclick="applyTheme('red')">
+            <span class="theme-swatch" style="background:linear-gradient(135deg,#18181b 50%,#ef4444 50%)"></span>
+            <span class="theme-name">Kırmızı</span>
+          </button>
+          <button type="button" class="theme-card" data-theme-name="green" onclick="applyTheme('green')">
+            <span class="theme-swatch" style="background:linear-gradient(135deg,#18181b 50%,#22c55e 50%)"></span>
+            <span class="theme-name">Yeşil</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="settings-card">
+        <h4>Gemini API Anahtarı</h4>
+        <p style="font-size:.72rem;color:var(--muted);margin-bottom:8px">Sohbet modu için kendi Gemini API anahtarınızı girin. <span id="gemini-key-status"></span></p>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="password" id="settings-gemini-key" class="settings-input" placeholder="AIza..." autocomplete="off" spellcheck="false" />
+          <button class="btn-primary" onclick="saveGeminiKey()">Kaydet</button>
+        </div>
+        <div id="settings-key-msg" style="font-size:.75rem;font-family:monospace;margin-top:8px;display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Automations tab -->
+  <div id="tab-automations" style="display: none; overflow-y: auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; padding: 14px 0 0;">
+      <button class="btn-ghost" id="suggest-refresh-btn" onclick="refreshSuggestions()" title="İşlem geçmişinden öneri üret">🔄 Öneri Üret</button>
+      <button class="btn-primary" onclick="openAutoModal()">＋ Otomasyon Ekle</button>
+    </div>
+
+    <!-- Akıllı öneriler -->
+    <div id="suggestions-section" class="suggest-section" style="display:none">
+      <div class="section-header">
+        <span class="section-title gemini">💡 Akıllı Öneriler</span>
+        <span class="section-hint">AI'ın alışkanlıklarınızdan çıkardığı rutinler</span>
+      </div>
+      <div class="suggest-list" id="suggest-list"></div>
+    </div>
+
+    <!-- Kayıtlı otomasyonlar -->
+    <div class="section-header" style="margin-top:18px">
+      <span class="section-title">⏰ Kayıtlı Otomasyonlar</span>
+    </div>
+    <div id="auto-empty" class="auto-empty" style="display: none;">
+      <span style="font-size:2rem">⏰</span>
+      <p>Henüz otomasyon yok. Cihazlarınızı belirli saatlerde otomatik açmak/kapatmak için otomasyon ekleyin.</p>
+    </div>
+    <div class="auto-list" id="auto-list"></div>
+  </div>
 
   <div class="voice-panel" id="voice-panel">
     <div class="voice-row">
-      <button class="mic-btn" id="mic-btn" onclick="toggleRecording()">🎙️</button>
-      <div class="voice-hint" id="voice-hint">
-        Butona basılı tutun ve komut verin.<br>
-        Örnek: <em>"Salon ışığını aç"</em> · <em>"Klimayı kapat"</em>
+      <div class="mode-block">
+        <button class="mode-btn fast" id="mic-btn" onclick="toggleRecording()">
+          <span class="mode-icon">🎙️</span>
+          <span class="mode-label">Hızlı Komut Modu</span>
+        </button>
+        <button class="info-btn" onclick="openInfoModal('fast')" title="Bilgi" aria-label="Hızlı Komut Modu bilgi">ⓘ</button>
+      </div>
+      <div class="mode-block">
+        <button class="mode-btn chat" id="live-btn" onclick="toggleLive()">
+          <span class="mode-icon">✨</span>
+          <span class="mode-label">Sohbet Modu</span>
+        </button>
+        <button class="info-btn" onclick="openInfoModal('chat')" title="Bilgi" aria-label="Sohbet Modu bilgi">ⓘ</button>
       </div>
     </div>
     <div id="feedback">Hazır.</div>
+    <div id="live-status"></div>
   </div>
 
 </div>
 
 <div class="toast" id="toast"></div>
 
+<!-- Virtual Keyboard -->
 <div id="vkb-overlay">
   <div id="vkb-backdrop" onclick="vkbClose()"></div>
   <div id="vkb">
@@ -591,6 +765,18 @@
   </div>
 </div>
 
+<!-- Info Modal -->
+<div class="modal-overlay" id="info-modal-overlay" onclick="if(event.target===this) closeInfoModal()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3 id="info-modal-title"></h3>
+    <p id="info-modal-body" style="font-size:.88rem;line-height:1.6;color:var(--text)"></p>
+    <div class="modal-actions">
+      <button type="button" class="btn-save" onclick="closeInfoModal()">Anladım</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Device Modal -->
 <div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this) closeAddModal()">
   <div class="modal" onclick="event.stopPropagation()">
     <h3>Yeni cihaz</h3>
@@ -605,10 +791,10 @@
     </div>
     <div class="field field-color">
       <label>Renk</label>
-      <p style="font-size:.72rem;color:var(--muted);margin:0 0 4px 0;">Hazır tonlardan seçin veya seçici / kod ile özelleştirin.</p>
-      <div class="color-swatches" id="color-swatches" aria-label="Hazır renkler"></div>
+      <p style="font-size:.72rem;color:var(--muted);margin:0 0 4px 0;">Hazır tonlardan seçin veya özelleştirin.</p>
+      <div class="color-swatches" id="color-swatches"></div>
       <div class="color-custom">
-        <input type="color" id="dev-color-picker" value="#FFD54F" title="Renk seçici" />
+        <input type="color" id="dev-color-picker" value="#FFD54F" />
         <input type="text" class="field-hex" id="dev-color" value="#ffd54f" placeholder="#RRGGBB" maxlength="7" spellcheck="false" autocomplete="off" />
       </div>
     </div>
@@ -627,106 +813,97 @@
   </div>
 </div>
 
+<!-- WiFi Connect Modal -->
+<div class="modal-overlay" id="wifi-modal-overlay" onclick="if(event.target===this) closeWifiModal()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3>WiFi Bağlantısı</h3>
+    <div class="field">
+      <label>Ağ</label>
+      <div style="font-weight:600;font-size:.95rem;padding:4px 0" id="wifi-modal-ssid"></div>
+    </div>
+    <div class="field" id="wifi-modal-pwd-row">
+      <label for="wifi-modal-pwd">Şifre</label>
+      <input type="text" id="wifi-modal-pwd" placeholder="WiFi şifresi" maxlength="64" autocomplete="off" />
+    </div>
+    <p style="font-size:.72rem;color:var(--muted);margin-bottom:14px">⚠️ Farklı bir ağa bağlanırsanız mevcut bağlantı kesilir. Yeni ağın IP adresiyle erişmeniz gerekebilir.</p>
+    <div class="modal-actions">
+      <button type="button" class="btn-ghost" onclick="closeWifiModal()">Vazgeç</button>
+      <button type="button" class="btn-save" id="btn-wifi-connect" onclick="submitWifiConnect()">Bağlan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Automation Modal -->
+<div class="modal-overlay" id="auto-modal-overlay" onclick="if(event.target===this) closeAutoModal()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3 id="auto-modal-title">Yeni Otomasyon</h3>
+    <input type="hidden" id="auto-edit-id" value="" />
+    <div class="field">
+      <label for="auto-name">Otomasyon adı</label>
+      <input type="text" id="auto-name" placeholder="Örn. Sabah Işık" maxlength="80" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label for="auto-device">Cihaz</label>
+      <select id="auto-device"></select>
+    </div>
+    <div class="field">
+      <label>Aksiyon</label>
+      <div class="radio-group">
+        <button type="button" class="radio-btn selected" id="radio-on" onclick="selectAction('on')">✅ Aç</button>
+        <button type="button" class="radio-btn" id="radio-off" onclick="selectAction('off')">❌ Kapat</button>
+      </div>
+    </div>
+    <div class="field">
+      <label for="auto-time">Saat</label>
+      <input type="time" id="auto-time" value="08:00" />
+    </div>
+    <div class="field">
+      <label>Günler</label>
+      <div class="day-picker" id="day-picker">
+        <button type="button" class="day-btn selected" data-day="0">Pzt</button>
+        <button type="button" class="day-btn selected" data-day="1">Sal</button>
+        <button type="button" class="day-btn selected" data-day="2">Çar</button>
+        <button type="button" class="day-btn selected" data-day="3">Per</button>
+        <button type="button" class="day-btn selected" data-day="4">Cum</button>
+        <button type="button" class="day-btn selected" data-day="5">Cmt</button>
+        <button type="button" class="day-btn selected" data-day="6">Paz</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn-ghost" onclick="closeAutoModal()">Vazgeç</button>
+      <button type="button" class="btn-save" id="btn-save-auto" onclick="submitAutoModal()">Kaydet</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const initialDevices = {{ devices|tojson }};
 
-const EMOJI_LIST = [
-  '💡','🔌','🖥️','📺','❄️','🌡️','🔒','🚪','🪟','💧','🔥','🎵',
-  '📡','⚡','🔆','🌙','🛋️','🛏️','🍳','🚿','🚽','🧹','🌿','🔔',
-  '📷','🔐','🏠','🚗','🌞','💨','🎮','🖨️','📱','⌨️','🖱️','💻',
-  '🔋','🔦','🕯️','🧯','🌊','🌬️','♨️','🎛️','📻','📟','🔧','⚙️'
-];
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+let currentTab = 'devices';
 
-function initEmojiPicker() {
-  const picker = document.getElementById('emoji-picker');
-  const hidden = document.getElementById('dev-icon');
-  picker.innerHTML = '';
-  EMOJI_LIST.forEach(function(em) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'emoji-btn' + (em === hidden.value ? ' selected' : '');
-    btn.textContent = em;
-    btn.addEventListener('click', function() {
-      hidden.value = em;
-      picker.querySelectorAll('.emoji-btn').forEach(b => b.classList.remove('selected'));
-      btn.classList.add('selected');
-    });
-    picker.appendChild(btn);
+function switchTab(tab) {
+  currentTab = tab;
+  ['devices','automations','wifi','settings'].forEach(t => {
+    document.getElementById('tab-' + t).style.display = t === tab ? '' : 'none';
+    document.getElementById('tab-btn-' + t).classList.toggle('active', t === tab);
   });
+  document.getElementById('btn-add').style.display = tab === 'devices' ? '' : 'none';
+  document.getElementById('all-off-btn').style.display = tab === 'devices' ? '' : 'none';
+  if (tab === 'automations') loadAutomations();
+  if (tab === 'wifi') loadWifiStatus();
+  if (tab === 'settings') loadSettings();
 }
 
-const PRESET_COLORS = [
-  '#FF6B35', '#4FC3F7', '#FFD54F', '#A5D6A7', '#CE93D8',
-  '#38bdf8', '#f87171', '#67e8f9', '#4ade80', '#fb923c'
-];
-
-function normalizeHex(s) {
-  let t = (s || '').trim();
-  if (!t) return '#ffd54f';
-  if (!t.startsWith('#')) t = '#' + t;
-  if (/^#[0-9A-Fa-f]{6}$/.test(t)) return t.toLowerCase();
-  return '#ffd54f';
-}
-
-function updateSwatchSelection(hex) {
-  const h = normalizeHex(hex);
-  document.querySelectorAll('.color-swatch').forEach(function (btn) {
-    btn.classList.toggle('selected', normalizeHex(btn.dataset.color) === h);
-  });
-}
-
-function setFormColor(hex) {
-  const h = normalizeHex(hex);
-  document.getElementById('dev-color').value = h;
-  document.getElementById('dev-color-picker').value = h;
-  updateSwatchSelection(h);
-}
-
-function initColorPickers() {
-  const wrap = document.getElementById('color-swatches');
-  wrap.innerHTML = '';
-  PRESET_COLORS.forEach(function (c) {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'color-swatch';
-    b.dataset.color = c;
-    b.style.background = c;
-    b.title = c;
-    b.addEventListener('click', function () {
-      setFormColor(c);
-    });
-    wrap.appendChild(b);
-  });
-  const picker = document.getElementById('dev-color-picker');
-  const text = document.getElementById('dev-color');
-  picker.addEventListener('input', function () {
-    text.value = picker.value.toLowerCase();
-    updateSwatchSelection(picker.value);
-  });
-  text.addEventListener('input', function () {
-    const h = normalizeHex(text.value);
-    if (/^#[0-9A-Fa-f]{6}$/.test(text.value.trim()) || /^[0-9A-Fa-f]{6}$/.test(text.value.trim())) {
-      picker.value = h;
-      updateSwatchSelection(h);
-    }
-  });
-  text.addEventListener('blur', function () {
-    const h = normalizeHex(text.value);
-    text.value = h;
-    picker.value = h;
-    updateSwatchSelection(h);
-  });
-  setFormColor('#FFD54F');
-}
-
+// ── Clock ─────────────────────────────────────────────────────────────────────
 function updateClock() {
-  const now = new Date();
   document.getElementById('clock').textContent =
-    now.toLocaleTimeString('tr-TR', { hour:'2-digit', minute:'2-digit' });
+    new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
 }
 updateClock();
 setInterval(updateClock, 1000);
 
+// ── Toast ─────────────────────────────────────────────────────────────────────
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -735,18 +912,15 @@ function showToast(msg) {
   t._timer = setTimeout(() => t.classList.remove('show'), 2500);
 }
 
-function openAddModal() {
-  document.getElementById('dev-icon').value = '💡';
-  initEmojiPicker();
-  document.getElementById('modal-overlay').classList.add('open');
-  document.getElementById('dev-name').focus();
-}
-function closeAddModal() {
-  document.getElementById('modal-overlay').classList.remove('open');
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
 }
 
+// ── Device tab helpers ────────────────────────────────────────────────────────
 function _setGridVisible(hasItems) {
-  const grid  = document.getElementById('device-grid');
+  const grid = document.getElementById('device-grid');
   const empty = document.getElementById('empty-state');
   const voice = document.getElementById('voice-panel');
   const allOff = document.getElementById('all-off-btn');
@@ -770,11 +944,9 @@ function _buildCard(id, dev) {
   el.style.setProperty('--card-color', dev.color || '#38bdf8');
   el.onclick = () => toggleDevice(id);
   const kwSpinner = dev.keywords_ready === false
-    ? '<div class="card-kw-spinner" id="kw-spinner-' + id + '">⟳ kelimeler</div>'
-    : '';
+    ? '<div class="card-kw-spinner" id="kw-spinner-' + id + '">⟳ kelimeler</div>' : '';
   const mqttBadge = dev.mqtt_topic
-    ? '<div class="card-mqtt" title="' + escapeHtml(dev.mqtt_topic) + '">📡 ' + escapeHtml(dev.mqtt_topic) + '</div>'
-    : '';
+    ? '<div class="card-mqtt" title="' + escapeHtml(dev.mqtt_topic) + '">📡 ' + escapeHtml(dev.mqtt_topic) + '</div>' : '';
   el.innerHTML =
     '<button class="card-delete" title="Cihazı sil" onclick="deleteDevice(event,\'' + id + '\')">✕</button>' +
     kwSpinner +
@@ -824,57 +996,10 @@ function _pollKeywords(id) {
   }, 2000);
 }
 
-function escapeHtml(s) {
-  const d = document.createElement('div');
-  d.textContent = s;
-  return d.innerHTML;
-}
-
-async function submitAddDevice() {
-  const name = document.getElementById('dev-name').value.trim();
-  const icon = document.getElementById('dev-icon').value.trim() || '💡';
-  const color = normalizeHex(document.getElementById('dev-color').value);
-  const pinRaw = document.getElementById('dev-pin').value.trim();
-  const topic = document.getElementById('dev-topic').value.trim();
-  const btn = document.getElementById('btn-save-device');
-  if (!name) { showToast('Cihaz adı girin'); return; }
-
-  btn.disabled = true;
-  btn.textContent = 'Kaydediliyor…';
-  try {
-    const body = { name, icon, color, use_ai_keywords: true };
-    if (topic !== '') body.mqtt_topic = topic;
-    if (pinRaw !== '') body.pin = parseInt(pinRaw, 10);
-    const res = await fetch('/api/devices', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-    const data = await res.json();
-    if (!res.ok) { showToast(data.error || 'Kayıt başarısız'); return; }
-
-    closeAddModal();
-    document.getElementById('dev-name').value = '';
-    document.getElementById('dev-topic').value = '';
-    document.getElementById('dev-pin').value = '';
-    setFormColor('#FFD54F');
-    addCard(data.id, data);
-    showToast(name + ' eklendi ✓');
-  } catch (e) {
-    showToast('Bağlantı hatası');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Kaydet';
-  }
-}
-
-async function refreshDevices() {
-  try {
-    const res = await fetch('/api/devices');
-    const data = await res.json();
-    renderCards(data);
-    Object.entries(data).forEach(([id, dev]) => updateCard(id, dev.state));
-  } catch (e) {}
+function updateCard(id, state) {
+  const card = document.getElementById('card-' + id);
+  if (!card) return;
+  card.classList.toggle('active', state);
 }
 
 async function toggleDevice(id) {
@@ -885,19 +1010,10 @@ async function toggleDevice(id) {
       body: JSON.stringify({ device: id })
     });
     const data = await res.json();
-    if (!res.ok) {
-      showToast(data.error || 'Hata');
-      return;
-    }
+    if (!res.ok) { showToast(data.error || 'Hata'); return; }
     updateCard(data.device, data.state);
     showToast((data.label || '') + ' ' + (data.state ? 'Açıldı ✓' : 'Kapatıldı ✓'));
   } catch (e) { showToast('Bağlantı hatası!'); }
-}
-
-function updateCard(id, state) {
-  const card = document.getElementById('card-' + id);
-  if (!card) return;
-  card.classList.toggle('active', state);
 }
 
 async function deleteDevice(event, id) {
@@ -907,17 +1023,11 @@ async function deleteDevice(event, id) {
   if (!confirm('"' + label + '" cihazını silmek istiyor musunuz?')) return;
   try {
     const res = await fetch('/api/devices/' + id, { method: 'DELETE' });
-    if (!res.ok) {
-      const data = await res.json();
-      showToast(data.error || 'Silinemedi');
-      return;
-    }
+    if (!res.ok) { const data = await res.json(); showToast(data.error || 'Silinemedi'); return; }
     if (card) card.remove();
     _setGridVisible(document.querySelectorAll('.card').length > 0);
     showToast(label + ' silindi ✓');
-  } catch (e) {
-    showToast('Bağlantı hatası!');
-  }
+  } catch (e) { showToast('Bağlantı hatası!'); }
 }
 
 async function allOff() {
@@ -928,29 +1038,141 @@ async function allOff() {
   } catch (e) { showToast('Bağlantı hatası!'); }
 }
 
+async function refreshDevices() {
+  try {
+    const res = await fetch('/api/devices');
+    const data = await res.json();
+    renderCards(data);
+  } catch (e) {}
+}
+
 async function syncStatus() {
   try {
     const res = await fetch('/api/status');
     const data = await res.json();
-    const ids = Object.keys(data);
-    if (!ids.length) {
-      renderCards({});
-      return;
-    }
+    if (!Object.keys(data).length) { renderCards({}); return; }
     Object.entries(data).forEach(([id, dev]) => updateCard(id, dev.state));
   } catch (e) {}
 }
 setInterval(syncStatus, 5000);
 
-let mediaRecorder = null;
-let audioChunks = [];
-let recording = false;
+// ── Add Device Modal ──────────────────────────────────────────────────────────
+const EMOJI_LIST = [
+  '💡','🔌','🖥️','📺','❄️','🌡️','🔒','🚪','🪟','💧','🔥','🎵',
+  '📡','⚡','🔆','🌙','🛋️','🛏️','🍳','🚿','🚽','🧹','🌿','🔔',
+  '📷','🔐','🏠','🚗','🌞','💨','🎮','🖨️','📱','⌨️','🖱️','💻',
+  '🔋','🔦','🕯️','🧯','🌊','🌬️','♨️','🎛️','📻','📟','🔧','⚙️'
+];
+const PRESET_COLORS = [
+  '#FF6B35','#4FC3F7','#FFD54F','#A5D6A7','#CE93D8',
+  '#38bdf8','#f87171','#67e8f9','#4ade80','#fb923c'
+];
+
+function normalizeHex(s) {
+  let t = (s || '').trim();
+  if (!t) return '#ffd54f';
+  if (!t.startsWith('#')) t = '#' + t;
+  if (/^#[0-9A-Fa-f]{6}$/.test(t)) return t.toLowerCase();
+  return '#ffd54f';
+}
+
+function updateSwatchSelection(hex) {
+  const h = normalizeHex(hex);
+  document.querySelectorAll('.color-swatch').forEach(btn => btn.classList.toggle('selected', normalizeHex(btn.dataset.color) === h));
+}
+
+function setFormColor(hex) {
+  const h = normalizeHex(hex);
+  document.getElementById('dev-color').value = h;
+  document.getElementById('dev-color-picker').value = h;
+  updateSwatchSelection(h);
+}
+
+function initEmojiPicker() {
+  const picker = document.getElementById('emoji-picker');
+  const hidden = document.getElementById('dev-icon');
+  picker.innerHTML = '';
+  EMOJI_LIST.forEach(em => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'emoji-btn' + (em === hidden.value ? ' selected' : '');
+    btn.textContent = em;
+    btn.addEventListener('click', () => {
+      hidden.value = em;
+      picker.querySelectorAll('.emoji-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+    });
+    picker.appendChild(btn);
+  });
+}
+
+function initColorPickers() {
+  const wrap = document.getElementById('color-swatches');
+  wrap.innerHTML = '';
+  PRESET_COLORS.forEach(c => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'color-swatch';
+    b.dataset.color = c;
+    b.style.background = c;
+    b.title = c;
+    b.addEventListener('click', () => setFormColor(c));
+    wrap.appendChild(b);
+  });
+  const picker = document.getElementById('dev-color-picker');
+  const text = document.getElementById('dev-color');
+  picker.addEventListener('input', () => { text.value = picker.value.toLowerCase(); updateSwatchSelection(picker.value); });
+  text.addEventListener('input', () => {
+    const h = normalizeHex(text.value);
+    if (/^#[0-9A-Fa-f]{6}$/.test(text.value.trim()) || /^[0-9A-Fa-f]{6}$/.test(text.value.trim())) {
+      picker.value = h; updateSwatchSelection(h);
+    }
+  });
+  text.addEventListener('blur', () => { const h = normalizeHex(text.value); text.value = h; picker.value = h; updateSwatchSelection(h); });
+  setFormColor('#FFD54F');
+}
+
+function openAddModal() {
+  document.getElementById('dev-icon').value = '💡';
+  initEmojiPicker();
+  document.getElementById('modal-overlay').classList.add('open');
+  document.getElementById('dev-name').focus();
+}
+function closeAddModal() { document.getElementById('modal-overlay').classList.remove('open'); }
+
+async function submitAddDevice() {
+  vkbClose();
+  const name = document.getElementById('dev-name').value.trim();
+  const icon = document.getElementById('dev-icon').value.trim() || '💡';
+  const color = normalizeHex(document.getElementById('dev-color').value);
+  const pinRaw = document.getElementById('dev-pin').value.trim();
+  const topic = document.getElementById('dev-topic').value.trim();
+  const btn = document.getElementById('btn-save-device');
+  if (!name) { showToast('Cihaz adı girin'); return; }
+  btn.disabled = true; btn.textContent = 'Kaydediliyor…';
+  try {
+    const body = { name, icon, color, use_ai_keywords: true };
+    if (topic !== '') body.mqtt_topic = topic;
+    if (pinRaw !== '') body.pin = parseInt(pinRaw, 10);
+    const res = await fetch('/api/devices', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Kayıt başarısız'); return; }
+    closeAddModal();
+    document.getElementById('dev-name').value = '';
+    document.getElementById('dev-topic').value = '';
+    document.getElementById('dev-pin').value = '';
+    setFormColor('#FFD54F');
+    addCard(data.id, data);
+    showToast(name + ' eklendi ✓');
+  } catch (e) { showToast('Bağlantı hatası'); }
+  finally { btn.disabled = false; btn.textContent = 'Kaydet'; }
+}
+
+// ── Voice recording (Whisper) ─────────────────────────────────────────────────
+let mediaRecorder = null, audioChunks = [], recording = false;
 
 async function toggleRecording() {
-  if (document.getElementById('voice-panel').classList.contains('disabled')) {
-    showToast('Önce cihaz ekleyin');
-    return;
-  }
+  if (document.getElementById('voice-panel').classList.contains('disabled')) { showToast('Önce cihaz ekleyin'); return; }
   if (!recording) await startRecording();
   else stopRecording();
 }
@@ -965,19 +1187,15 @@ async function startRecording() {
     mediaRecorder.ondataavailable = e => { if (e.data.size) audioChunks.push(e.data); };
     mediaRecorder.onstop = async () => {
       stream.getTracks().forEach(t => t.stop());
-      const blob = new Blob(audioChunks, { type: 'audio/webm' });
-      await sendAudio(blob);
+      await sendAudio(new Blob(audioChunks, { type: 'audio/webm' }));
     };
     mediaRecorder.start();
     recording = true;
     micBtn.classList.add('recording');
-    micBtn.textContent = '⏹';
+    micBtn.querySelector('.mode-icon').textContent = '⏹';
     feedback.className = '';
     feedback.textContent = '🔴 Dinleniyor...';
-  } catch (e) {
-    feedback.className = 'err';
-    feedback.textContent = 'Mikrofon erişimi reddedildi.';
-  }
+  } catch (e) { feedback.className = 'err'; feedback.textContent = 'Mikrofon erişimi reddedildi.'; }
 }
 
 function stopRecording() {
@@ -986,7 +1204,7 @@ function stopRecording() {
     recording = false;
     const micBtn = document.getElementById('mic-btn');
     micBtn.classList.remove('recording');
-    micBtn.textContent = '🎙️';
+    micBtn.querySelector('.mode-icon').textContent = '🎙️';
     document.getElementById('feedback').textContent = '⏳ İşleniyor...';
   }
 }
@@ -1009,92 +1227,527 @@ async function sendAudio(blob) {
     let msg = data.message || data.error || 'Komut anlaşılamadı.';
     if (data.detail) msg += ' (' + data.detail + ')';
     if (data.hint) msg += ' — ' + data.hint;
-    if (data.transcript) feedback.textContent = '✗ ' + msg + ' | ' + data.transcript;
-    else feedback.textContent = '✗ ' + msg;
-  } catch (e) {
-    feedback.className = 'err';
-    feedback.textContent = 'Sunucu ile bağlantı hatası.';
+    feedback.textContent = '✗ ' + msg + (data.transcript ? ' | ' + data.transcript : '');
+  } catch (e) { feedback.className = 'err'; feedback.textContent = 'Sunucu ile bağlantı hatası.'; }
+}
+
+// ── Gemini Live API ───────────────────────────────────────────────────────────
+let liveWs = null;
+let liveAudioCtx = null;
+let liveStream = null;
+let liveProcessor = null;
+let livePlayCtx = null;
+let liveConnected = false;
+let liveNextPlayTime = 0;
+let liveClosing = false;
+
+function setLiveStatus(msg, cls) {
+  const el = document.getElementById('live-status');
+  el.textContent = msg;
+  el.style.color = cls === 'err' ? 'var(--danger)' : cls === 'ok' ? '#4ade80' : 'var(--gemini)';
+}
+
+function setLiveState(state) {
+  const btn = document.getElementById('live-btn');
+  const icon = btn.querySelector('.mode-icon');
+  btn.classList.remove('listening', 'processing', 'speaking', 'connected');
+  if (state === 'listening') {
+    btn.classList.add('listening');
+    icon.textContent = '🔴';
+    setLiveStatus('Sizi dinliyorum — konuşun', 'ok');
+  } else if (state === 'processing') {
+    btn.classList.add('processing');
+    icon.textContent = '';
+    setLiveStatus('Düşünüyorum…', '');
+  } else if (state === 'speaking') {
+    btn.classList.add('speaking');
+    icon.textContent = '🟢';
+    setLiveStatus('Yanıtlıyor…', '');
   }
 }
 
-// ── Virtual Keyboard ────────────────────────────────────────────
-const VKB_ROWS = [
-  ['1','2','3','4','5','6','7','8','9','0'],
-  ['q','w','e','r','t','y','u','i','o','p','ğ','ü'],
-  ['a','s','d','f','g','h','j','k','l','ş','i','⌫'],
-  ['CAPS','z','x','c','v','b','n','m','ö','ç','.','Tamam'],
-];
-let vkbTarget = null;
-let vkbCaps = false;
+async function toggleLive() {
+  if (liveConnected || liveWs) {
+    stopLive('');
+  } else {
+    liveClosing = false;
+    await startLive();
+  }
+}
 
-function vkbInit() {
-  VKB_ROWS.forEach(function(keys, ri) {
+async function startLive() {
+  const btn = document.getElementById('live-btn');
+  setLiveStatus('Bağlanıyor…', '');
+
+  // Start WebSocket + mic permission in parallel — saves 1-2 seconds
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const wsUrl = proto + '://' + location.host + '/ws/live';
+  liveWs = new WebSocket(wsUrl);
+  liveWs.binaryType = 'arraybuffer';
+
+  const micPromise = navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+
+  liveWs.onerror = () => { if (!liveClosing) stopLive('Bağlantı hatası. Tekrar deneyin.', 'err'); };
+  liveWs.onclose = () => { if (!liveClosing && (liveConnected || liveWs)) stopLive('Bağlantı kesildi.'); };
+
+  liveWs.onmessage = (evt) => {
+    try {
+      const msg = JSON.parse(evt.data);
+      if (msg.type === 'connected') {
+        liveConnected = true;
+        setLiveState('listening');
+        setLiveStatus('Bağlandı — konuşup cevabı bekleyin', 'ok');
+        micPromise.then(stream => { liveStream = stream; _startCapture(); })
+                  .catch(() => stopLive('Mikrofon erişimi reddedildi.', 'err'));
+      } else if (msg.type === 'state') {
+        setLiveState(msg.value);
+      } else if (msg.type === 'audio') {
+        _playPCM16(msg.data);
+      } else if (msg.type === 'tool_result') {
+        _onToolResult(msg);
+      } else if (msg.type === 'error') {
+        stopLive('Hata: ' + msg.message, 'err');
+      }
+    } catch (e) {}
+  };
+}
+
+function stopLive(statusMsg, statusCls) {
+  liveClosing = true;
+  liveConnected = false;
+  const btn = document.getElementById('live-btn');
+  btn.classList.remove('connected', 'speaking', 'listening', 'processing');
+  btn.querySelector('.mode-icon').textContent = '✨';
+
+  if (liveProcessor) { try { liveProcessor.disconnect(); } catch (e) {} liveProcessor = null; }
+  if (liveAudioCtx) { try { liveAudioCtx.close(); } catch (e) {} liveAudioCtx = null; }
+  if (liveStream) { liveStream.getTracks().forEach(t => t.stop()); liveStream = null; }
+  if (liveWs && liveWs.readyState < 2) { try { liveWs.close(); } catch (e) {} }
+  liveWs = null;
+  liveNextPlayTime = 0;
+
+  if (statusMsg !== undefined) setLiveStatus(statusMsg, statusCls || '');
+}
+
+function _startCapture() {
+  liveAudioCtx = new AudioContext({ sampleRate: 16000 });
+  const source = liveAudioCtx.createMediaStreamSource(liveStream);
+  liveProcessor = liveAudioCtx.createScriptProcessor(4096, 1, 1);
+
+  liveProcessor.onaudioprocess = (e) => {
+    if (!liveConnected || !liveWs || liveWs.readyState !== 1) return;
+    const float32 = e.inputBuffer.getChannelData(0);
+    const int16 = new Int16Array(float32.length);
+    for (let i = 0; i < float32.length; i++) {
+      int16[i] = Math.max(-32768, Math.min(32767, Math.round(float32[i] * 32767)));
+    }
+    const bytes = new Uint8Array(int16.buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    const b64 = btoa(binary);
+    liveWs.send(JSON.stringify({ type: 'audio', data: b64 }));
+  };
+
+  source.connect(liveProcessor);
+  liveProcessor.connect(liveAudioCtx.destination);
+}
+
+function _playPCM16(b64) {
+  if (!livePlayCtx) {
+    livePlayCtx = new AudioContext({ sampleRate: 24000 });
+    liveNextPlayTime = 0;
+  }
+  try {
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const int16 = new Int16Array(bytes.buffer);
+    const float32 = new Float32Array(int16.length);
+    for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 32768;
+
+    const buf = livePlayCtx.createBuffer(1, float32.length, 24000);
+    buf.getChannelData(0).set(float32);
+    const src = livePlayCtx.createBufferSource();
+    src.buffer = buf;
+    src.connect(livePlayCtx.destination);
+
+    const now = livePlayCtx.currentTime;
+    if (liveNextPlayTime < now) liveNextPlayTime = now;
+    src.start(liveNextPlayTime);
+    liveNextPlayTime += buf.duration;
+  } catch (e) {}
+}
+
+function _onToolResult(msg) {
+  const tool = msg.tool;
+  const result = msg.result || {};
+  if (tool === 'toggle_device' && result.device_id) {
+    updateCard(result.device_id, result.state);
+    showToast((result.label || result.device_id) + ' ' + (result.state ? 'Açıldı ✓' : 'Kapatıldı ✓'));
+  } else if (tool === 'turn_all_off') {
+    document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
+    showToast('Tüm cihazlar kapatıldı ✓');
+  } else if (tool === 'create_or_update_automation' && result.success) {
+    showToast('Otomasyon oluşturuldu: ' + (result.name || '') + ' ✓');
+    if (currentTab === 'automations') loadAutomations();
+  }
+}
+
+// ── Automation tab ────────────────────────────────────────────────────────────
+const DAY_LABELS = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
+let _autoAction = 'on';
+
+function selectAction(val) {
+  _autoAction = val;
+  document.getElementById('radio-on').classList.toggle('selected', val === 'on');
+  document.getElementById('radio-off').classList.toggle('selected', val === 'off');
+}
+
+function _getSelectedDays() {
+  const days = [];
+  document.querySelectorAll('#day-picker .day-btn.selected').forEach(b => days.push(parseInt(b.dataset.day)));
+  return days;
+}
+
+function _setSelectedDays(days) {
+  document.querySelectorAll('#day-picker .day-btn').forEach(b => {
+    b.classList.toggle('selected', days.includes(parseInt(b.dataset.day)));
+  });
+}
+
+function _initDayPicker() {
+  document.querySelectorAll('#day-picker .day-btn').forEach(b => {
+    b.onclick = () => b.classList.toggle('selected');
+  });
+}
+
+function _populateDeviceSelect() {
+  const sel = document.getElementById('auto-device');
+  sel.innerHTML = '';
+  const devices = Object.entries(_cachedDevices || {});
+  if (!devices.length) {
+    const opt = document.createElement('option');
+    opt.value = ''; opt.textContent = 'Önce cihaz ekleyin';
+    sel.appendChild(opt);
+    return;
+  }
+  devices.forEach(([id, dev]) => {
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = (dev.icon || '') + ' ' + (dev.label || id);
+    sel.appendChild(opt);
+  });
+}
+
+let _cachedDevices = initialDevices;
+
+async function _refreshCachedDevices() {
+  try {
+    const res = await fetch('/api/devices');
+    _cachedDevices = await res.json();
+  } catch (e) {}
+}
+
+function openAutoModal(auto) {
+  _refreshCachedDevices().then(() => {
+    _populateDeviceSelect();
+    document.getElementById('auto-modal-title').textContent = auto ? 'Otomasyonu Düzenle' : 'Yeni Otomasyon';
+    document.getElementById('auto-edit-id').value = auto ? auto.id : '';
+    document.getElementById('auto-name').value = auto ? auto.name : '';
+    if (auto) {
+      document.getElementById('auto-device').value = auto.device_id;
+      selectAction(auto.action);
+      const hh = String(auto.hour).padStart(2, '0');
+      const mm = String(auto.minute).padStart(2, '0');
+      document.getElementById('auto-time').value = hh + ':' + mm;
+      _setSelectedDays(auto.days);
+    } else {
+      selectAction('on');
+      document.getElementById('auto-time').value = '08:00';
+      _setSelectedDays([0, 1, 2, 3, 4, 5, 6]);
+      document.getElementById('auto-name').value = '';
+    }
+    document.getElementById('auto-modal-overlay').classList.add('open');
+  });
+}
+
+function closeAutoModal() {
+  document.getElementById('auto-modal-overlay').classList.remove('open');
+}
+
+async function submitAutoModal() {
+  vkbClose();
+  const editId = document.getElementById('auto-edit-id').value;
+  const name = document.getElementById('auto-name').value.trim() || 'Otomasyon';
+  const device_id = document.getElementById('auto-device').value;
+  const timeVal = document.getElementById('auto-time').value;
+  const days = _getSelectedDays();
+  const btn = document.getElementById('btn-save-auto');
+
+  if (!device_id) { showToast('Cihaz seçin'); return; }
+  if (!timeVal) { showToast('Saat girin'); return; }
+  if (!days.length) { showToast('En az bir gün seçin'); return; }
+
+  const [hour, minute] = timeVal.split(':').map(Number);
+  const body = { name, device_id, action: _autoAction, hour, minute, days };
+
+  btn.disabled = true; btn.textContent = 'Kaydediliyor…';
+  try {
+    let res;
+    if (editId) {
+      res = await fetch('/api/automations/' + editId, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    } else {
+      res = await fetch('/api/automations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    }
+    const data = await res.json();
+    if (!res.ok) { showToast(data.error || 'Kayıt başarısız'); return; }
+    closeAutoModal();
+    showToast(name + (editId ? ' güncellendi ✓' : ' eklendi ✓'));
+    loadAutomations();
+  } catch (e) { showToast('Bağlantı hatası'); }
+  finally { btn.disabled = false; btn.textContent = 'Kaydet'; }
+}
+
+async function loadAutomations() {
+  try {
+    await _refreshCachedDevices();
+    const res = await fetch('/api/automations');
+    const list = await res.json();
+    renderAutomations(list);
+  } catch (e) {}
+  loadSuggestions();
+}
+
+// ── Akıllı Öneriler ───────────────────────────────────────────────────────────
+async function loadSuggestions() {
+  try {
+    const res = await fetch('/api/suggestions');
+    const list = await res.json();
+    renderSuggestions(list);
+  } catch (e) {}
+}
+
+function renderSuggestions(list) {
+  const section = document.getElementById('suggestions-section');
+  const container = document.getElementById('suggest-list');
+  container.innerHTML = '';
+  if (!list || !list.length) { section.style.display = 'none'; return; }
+  section.style.display = '';
+  list.forEach(s => {
+    const hh = String(s.hour).padStart(2, '0');
+    const mm = String(s.minute).padStart(2, '0');
+    const actionLabel = s.action === 'on' ? '✅ Aç' : '❌ Kapat';
+    const daysStr = s.days.length === 7 ? 'Her gün' : s.days.map(d => DAY_LABELS[d]).join(', ');
+    const card = document.createElement('div');
+    card.className = 'suggest-card';
+    card.id = 'suggest-' + s.id;
+    card.innerHTML = `
+      <div class="suggest-time">${hh}:${mm}</div>
+      <div class="suggest-info">
+        <div class="suggest-name">${escapeHtml((s.device_icon || '') + ' ' + s.device_label)} · ${actionLabel}</div>
+        <div class="suggest-meta">${escapeHtml(daysStr)}</div>
+        ${s.reason ? '<div class="suggest-reason">"' + escapeHtml(s.reason) + '"</div>' : ''}
+      </div>
+      <div class="suggest-actions">
+        <button class="suggest-btn accept" title="Kabul et" onclick="acceptSuggestion('${s.id}')">✓</button>
+        <button class="suggest-btn dismiss" title="Yoksay" onclick="dismissSuggestion('${s.id}')">✕</button>
+      </div>`;
+    container.appendChild(card);
+  });
+}
+
+async function acceptSuggestion(id) {
+  try {
+    const r = await fetch('/api/suggestions/' + id + '/accept', { method: 'POST' });
+    if (!r.ok) { showToast('Öneri kabul edilemedi'); return; }
+    showToast('Otomasyon oluşturuldu ✓');
+    loadAutomations();
+  } catch (e) { showToast('Bağlantı hatası'); }
+}
+
+async function dismissSuggestion(id) {
+  try {
+    await fetch('/api/suggestions/' + id, { method: 'DELETE' });
+    const card = document.getElementById('suggest-' + id);
+    if (card) card.remove();
+    if (!document.querySelectorAll('.suggest-card').length)
+      document.getElementById('suggestions-section').style.display = 'none';
+  } catch (e) {}
+}
+
+async function refreshSuggestions() {
+  const btn = document.getElementById('suggest-refresh-btn');
+  btn.disabled = true; btn.textContent = '⏳ Analiz…';
+  try {
+    const r = await fetch('/api/suggestions/analyze', { method: 'POST' });
+    const d = await r.json();
+    await loadSuggestions();
+    showToast(d.created > 0 ? (d.created + ' yeni öneri bulundu') : 'Yeni öneri bulunamadı');
+  } catch (e) { showToast('Analiz başarısız'); }
+  finally { btn.disabled = false; btn.textContent = '🔄 Öneri Üret'; }
+}
+
+function renderAutomations(list) {
+  const container = document.getElementById('auto-list');
+  const empty = document.getElementById('auto-empty');
+  container.innerHTML = '';
+  if (!list.length) {
+    empty.style.display = 'flex';
+    return;
+  }
+  empty.style.display = 'none';
+  list.forEach(auto => container.appendChild(_buildAutoCard(auto)));
+}
+
+function _buildAutoCard(auto) {
+  const dev = (_cachedDevices || {})[auto.device_id];
+  const devLabel = dev ? (dev.icon + ' ' + dev.label) : auto.device_id;
+  const actionLabel = auto.action === 'on' ? '✅ Aç' : '❌ Kapat';
+  const daysStr = auto.days.length === 7 ? 'Her gün' : auto.days.map(d => DAY_LABELS[d]).join(', ');
+  const hh = String(auto.hour).padStart(2, '0');
+  const mm = String(auto.minute).padStart(2, '0');
+
+  const card = document.createElement('div');
+  card.className = 'auto-card';
+  card.id = 'auto-card-' + auto.id;
+  card.innerHTML = `
+    <div class="auto-time">${hh}:${mm}</div>
+    <div class="auto-info">
+      <div class="auto-name">${escapeHtml(auto.name)}</div>
+      <div class="auto-meta">${escapeHtml(devLabel)} · ${actionLabel}</div>
+      <div class="auto-days">${escapeHtml(daysStr)}</div>
+    </div>
+    <div class="auto-actions">
+      <label class="toggle-switch" title="${auto.enabled ? 'Devre dışı bırak' : 'Etkinleştir'}">
+        <input type="checkbox" ${auto.enabled ? 'checked' : ''} onchange="toggleAutoEnabled('${auto.id}', this.checked)" />
+        <span class="toggle-slider"></span>
+      </label>
+      <button class="btn-icon" title="Düzenle" onclick="editAuto('${auto.id}')">✏️</button>
+      <button class="btn-icon del" title="Sil" onclick="deleteAuto('${auto.id}')">🗑️</button>
+    </div>`;
+  return card;
+}
+
+async function toggleAutoEnabled(id, enabled) {
+  try {
+    await fetch('/api/automations/' + id, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled })
+    });
+    showToast(enabled ? 'Otomasyon etkinleştirildi ✓' : 'Otomasyon devre dışı bırakıldı');
+  } catch (e) { showToast('Bağlantı hatası'); }
+}
+
+async function editAuto(id) {
+  try {
+    const res = await fetch('/api/automations');
+    const list = await res.json();
+    const auto = list.find(a => a.id === id);
+    if (auto) openAutoModal(auto);
+  } catch (e) {}
+}
+
+async function deleteAuto(id) {
+  const card = document.getElementById('auto-card-' + id);
+  const name = card ? card.querySelector('.auto-name').textContent : id;
+  if (!confirm('"' + name + '" otomasyonunu silmek istiyor musunuz?')) return;
+  try {
+    const res = await fetch('/api/automations/' + id, { method: 'DELETE' });
+    if (!res.ok) { const d = await res.json(); showToast(d.error || 'Silinemedi'); return; }
+    if (card) card.remove();
+    if (!document.querySelectorAll('.auto-card').length) document.getElementById('auto-empty').style.display = 'flex';
+    showToast(name + ' silindi ✓');
+  } catch (e) { showToast('Bağlantı hatası'); }
+}
+
+// ── Virtual Keyboard ──────────────────────────────────────────────────────────
+const VKB_LETTER_ROWS = [
+  ['q','w','e','r','t','y','u','i','o','p','ğ','ü'],
+  ['a','s','d','f','g','h','j','k','l','ş','ı','⌫'],
+  ['CAPS','z','x','c','v','b','n','m','ö','ç','.','Tamam'],
+  ['?123','__SPACE__'],
+];
+const VKB_SYM_ROWS = [
+  ['1','2','3','4','5','6','7','8','9','0'],
+  ['/','@','#','-','_','=','+','(',')',':','⌫'],
+  [';','"',"'",'!','?','*','&',',','<','>','Tamam'],
+  ['ABC','__SPACE__'],
+];
+let vkbTarget = null, vkbCaps = false, vkbSymMode = false;
+
+function vkbBuild(rows) {
+  for (let ri = 0; ri < 4; ri++) {
     const row = document.getElementById('vkb-row' + ri);
-    keys.forEach(function(k) {
+    row.innerHTML = '';
+    (rows[ri] || []).forEach(k => {
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'vkb-key' + (k === ' ' ? ' space' : '') +
-        (['CAPS','Tamam','⌫'].includes(k) ? ' wide' : '') +
-        (['Tamam'].includes(k) ? ' action' : '');
-      btn.dataset.key = k;
-      btn.textContent = k;
-      btn.addEventListener('mousedown', function(e) { e.preventDefault(); vkbPress(k); });
-      btn.addEventListener('touchstart', function(e) { e.preventDefault(); vkbPress(k); }, {passive:false});
+      if (k === '__SPACE__') {
+        btn.className = 'vkb-key space';
+        btn.dataset.key = ' ';
+        btn.textContent = 'Boşluk';
+      } else {
+        btn.className = 'vkb-key' +
+          (['CAPS','Tamam','⌫','?123','ABC'].includes(k) ? ' wide' : '') +
+          (k === 'Tamam' ? ' action' : '') +
+          (['?123','ABC'].includes(k) ? ' action' : '');
+        btn.dataset.key = k;
+        btn.textContent = k;
+      }
+      const key = btn.dataset.key;
+      btn.addEventListener('mousedown', e => { e.preventDefault(); vkbPress(key); });
+      btn.addEventListener('touchstart', e => { e.preventDefault(); vkbPress(key); }, { passive: false });
       row.appendChild(btn);
     });
-  });
-  // Boşluk tuşu
-  const spaceRow = document.getElementById('vkb-row3');
-  const spaceBtn = document.createElement('button');
-  spaceBtn.type = 'button';
-  spaceBtn.className = 'vkb-key space';
-  spaceBtn.textContent = 'Boşluk';
-  spaceBtn.addEventListener('mousedown', function(e) { e.preventDefault(); vkbPress(' '); });
-  spaceBtn.addEventListener('touchstart', function(e) { e.preventDefault(); vkbPress(' '); }, {passive:false});
-  spaceRow.appendChild(spaceBtn);
+  }
+}
 
-  document.querySelectorAll('.field input[type=text], .field input[type=number]').forEach(function(inp) {
-    inp.addEventListener('focus', function() { vkbOpen(inp); });
+function vkbInit() {
+  vkbBuild(VKB_LETTER_ROWS);
+  document.querySelectorAll('.field input[type=text], .field input[type=number], #wifi-ip-input, #wifi-modal-pwd, #settings-gemini-key').forEach(inp => {
+    inp.addEventListener('focus', () => vkbOpen(inp));
   });
 }
 
-function vkbOpen(inp) {
-  vkbTarget = inp;
-  document.getElementById('vkb-overlay').classList.add('open');
-  vkbUpdatePreview();
-}
-
-function vkbClose() {
-  document.getElementById('vkb-overlay').classList.remove('open');
-  vkbTarget = null;
-}
-
+function vkbOpen(inp) { vkbTarget = inp; document.getElementById('vkb-overlay').classList.add('open'); vkbUpdatePreview(); }
+function vkbClose() { document.getElementById('vkb-overlay').classList.remove('open'); vkbTarget = null; }
 function vkbUpdatePreview() {
   if (!vkbTarget) return;
-  document.getElementById('vkb-preview').textContent = vkbTarget.placeholder
-    ? (vkbTarget.value || vkbTarget.placeholder)
-    : vkbTarget.value;
-  document.getElementById('vkb-preview').style.color = vkbTarget.value ? 'var(--text)' : 'var(--muted)';
+  const p = document.getElementById('vkb-preview');
+  p.textContent = vkbTarget.value || vkbTarget.placeholder || '';
+  p.style.color = vkbTarget.value ? 'var(--text)' : 'var(--muted)';
 }
-
 function vkbPress(k) {
   if (!vkbTarget) return;
   if (k === 'Tamam') { vkbClose(); return; }
   if (k === '⌫') {
     vkbTarget.value = vkbTarget.value.slice(0, -1);
     vkbTarget.dispatchEvent(new Event('input'));
-    vkbUpdatePreview(); return;
+    vkbUpdatePreview();
+    return;
+  }
+  if (k === '?123') {
+    vkbSymMode = true;
+    vkbBuild(VKB_SYM_ROWS);
+    return;
+  }
+  if (k === 'ABC') {
+    vkbSymMode = false;
+    vkbCaps = false;
+    vkbBuild(VKB_LETTER_ROWS);
+    return;
   }
   if (k === 'CAPS') {
     vkbCaps = !vkbCaps;
-    document.querySelectorAll('.vkb-key').forEach(function(b) {
-      if (!['CAPS','Tamam','⌫'].includes(b.dataset.key)) {
-        b.textContent = vkbCaps ? b.dataset.key.toUpperCase() : b.dataset.key.toLowerCase();
-      }
+    document.querySelectorAll('.vkb-key').forEach(b => {
+      const bk = b.dataset.key;
+      if (!['CAPS','Tamam','⌫','?123','ABC',' '].includes(bk))
+        b.textContent = vkbCaps ? bk.toUpperCase() : bk.toLowerCase();
     });
     return;
   }
-  const ch = vkbCaps ? k.toUpperCase() : k.toLowerCase();
+  const ch = (!vkbSymMode && vkbCaps) ? k.toUpperCase() : k;
   const maxLen = parseInt(vkbTarget.maxLength) || 999;
   if (vkbTarget.value.length < maxLen) {
     vkbTarget.value += ch;
@@ -1103,10 +1756,251 @@ function vkbPress(k) {
   vkbUpdatePreview();
 }
 
-// ── Init ─────────────────────────────────────────────────────────
+// ── WiFi ─────────────────────────────────────────────────────────────────────
+const WIFI_PAGE_SIZE = 4;
+let _wifiNetworks = [];
+let _wifiPageIdx = 0;
+
+function _signalBars(pct) {
+  const levels = [25, 50, 75, 100];
+  return levels.map((lvl, i) =>
+    `<span style="height:${(i+1)*4}px" class="${pct >= lvl ? 'lit' : ''}"></span>`
+  ).join('');
+}
+
+async function loadWifiStatus() {
+  try {
+    const r = await fetch('/api/wifi/status');
+    const d = await r.json();
+    document.getElementById('wifi-current-ssid').textContent = d.ssid || '—';
+    document.getElementById('wifi-current-meta').textContent =
+      (d.ip ? 'IP: ' + d.ip : '') + (d.signal ? '  ·  ' + d.signal + '%' : '');
+    document.getElementById('wifi-signal-bar').innerHTML = _signalBars(d.signal || 0);
+  } catch (e) {}
+}
+
+function _renderWifiPage() {
+  const list = document.getElementById('wifi-net-list');
+  const total = _wifiNetworks.length;
+  const pages = Math.ceil(total / WIFI_PAGE_SIZE);
+  const start = _wifiPageIdx * WIFI_PAGE_SIZE;
+  const slice = _wifiNetworks.slice(start, start + WIFI_PAGE_SIZE);
+
+  list.innerHTML = '';
+  slice.forEach(n => {
+    const item = document.createElement('div');
+    item.className = 'wifi-net-item' + (n.connected ? ' active-net' : '');
+    item.innerHTML =
+      '<div class="signal-bar" style="flex-shrink:0">' + _signalBars(n.signal) + '</div>' +
+      '<div style="flex:1;min-width:0">' +
+        '<div class="wifi-net-ssid">' + escapeHtml(n.ssid) + (n.connected ? ' ✓' : '') + '</div>' +
+        '<div class="wifi-net-meta">' + (n.security ? '🔒' : '🔓') + ' ' + n.signal + '%</div>' +
+      '</div>';
+    item.onclick = () => n.connected ? showToast('Zaten bağlı: ' + n.ssid) : openWifiConnectModal(n.ssid, n.security);
+    list.appendChild(item);
+  });
+
+  document.getElementById('wifi-page-ind').textContent =
+    total ? ((_wifiPageIdx + 1) + '/' + pages) : '';
+  document.getElementById('wifi-prev-btn').disabled = _wifiPageIdx === 0;
+  document.getElementById('wifi-next-btn').disabled = _wifiPageIdx >= pages - 1;
+}
+
+function wifiPage(dir) {
+  const pages = Math.ceil(_wifiNetworks.length / WIFI_PAGE_SIZE);
+  _wifiPageIdx = Math.max(0, Math.min(pages - 1, _wifiPageIdx + dir));
+  _renderWifiPage();
+}
+
+async function scanWifi() {
+  const btn = document.getElementById('wifi-scan-btn');
+  const list = document.getElementById('wifi-net-list');
+  btn.disabled = true; btn.textContent = '⏳';
+  list.innerHTML = '<div class="wifi-scan-empty">Ağlar aranıyor…</div>';
+  _wifiNetworks = []; _wifiPageIdx = 0;
+  document.getElementById('wifi-page-ind').textContent = '';
+  document.getElementById('wifi-prev-btn').disabled = true;
+  document.getElementById('wifi-next-btn').disabled = true;
+  try {
+    const r = await fetch('/api/wifi/scan');
+    if (!r.ok) { list.innerHTML = '<div class="wifi-scan-empty">Tarama başarısız.</div>'; return; }
+    _wifiNetworks = await r.json();
+    if (!_wifiNetworks.length) { list.innerHTML = '<div class="wifi-scan-empty">Ağ bulunamadı.</div>'; return; }
+    _wifiPageIdx = 0;
+    _renderWifiPage();
+    await loadWifiStatus();
+  } catch (e) { list.innerHTML = '<div class="wifi-scan-empty">Tarama hatası.</div>'; }
+  finally { btn.disabled = false; btn.textContent = '🔍 Tara'; }
+}
+
+function toggleCustomIp(checked) {
+  document.getElementById('wifi-ip-box').style.display = checked ? '' : 'none';
+}
+
+async function applyIpConfig() {
+  const useCustom = document.getElementById('wifi-custom-chk').checked;
+  const ip = document.getElementById('wifi-ip-input').value.trim();
+  const msgEl = document.getElementById('wifi-ip-msg');
+  if (useCustom && !ip) { showToast('IP adresi girin'); return; }
+  msgEl.style.display = 'none';
+  try {
+    const r = await fetch('/api/wifi/ip-config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ use_custom: useCustom, ip })
+    });
+    const d = await r.json();
+    if (d.ok) {
+      const newIp = d.new_ip || ip;
+      msgEl.style.display = '';
+      msgEl.style.color = '#4ade80';
+      msgEl.textContent = useCustom
+        ? `✓ IP değişti → Yeni adres: ${newIp}:3000`
+        : '✓ DHCP\'ye döndürüldü. IP otomatik atanacak.';
+      showToast(useCustom ? 'Statik IP: ' + newIp : 'DHCP aktif');
+      loadWifiStatus();
+    } else {
+      msgEl.style.display = '';
+      msgEl.style.color = 'var(--danger)';
+      msgEl.textContent = '✗ ' + (d.message || 'Hata');
+    }
+  } catch (e) { showToast('Bağlantı hatası'); }
+}
+
+async function restartService() {
+  if (!confirm('Hizmet yeniden başlatılacak. Sayfa birkaç saniye içinde otomatik yenilenir. Devam edilsin mi?')) return;
+  try {
+    await fetch('/api/system/restart', { method: 'POST' });
+    showToast('Yeniden başlatılıyor…');
+  } catch (e) {}
+}
+
+// ── WiFi Connect Modal ────────────────────────────────────────────────────────
+let _wifiConnectSsid = '';
+
+function openWifiConnectModal(ssid, secured) {
+  _wifiConnectSsid = ssid;
+  document.getElementById('wifi-modal-ssid').textContent = ssid;
+  document.getElementById('wifi-modal-pwd-row').style.display = secured ? '' : 'none';
+  document.getElementById('wifi-modal-pwd').value = '';
+  document.getElementById('wifi-modal-overlay').classList.add('open');
+}
+
+function closeWifiModal() {
+  document.getElementById('wifi-modal-overlay').classList.remove('open');
+}
+
+async function submitWifiConnect() {
+  vkbClose();
+  const pwd = document.getElementById('wifi-modal-pwd').value;
+  const btn = document.getElementById('btn-wifi-connect');
+  btn.disabled = true; btn.textContent = 'Bağlanıyor…';
+  try {
+    const r = await fetch('/api/wifi/connect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ssid: _wifiConnectSsid, password: pwd })
+    });
+    const d = await r.json();
+    closeWifiModal();
+    if (d.ok) {
+      showToast(_wifiConnectSsid + ' bağlandı ✓');
+      loadWifiStatus();
+    } else {
+      showToast('Bağlanamadı: ' + (d.message || '').slice(0, 60));
+    }
+  } catch (e) { showToast('Bağlantı hatası'); }
+  finally { btn.disabled = false; btn.textContent = 'Bağlan'; }
+}
+
+// ── Mod bilgi modalı ──────────────────────────────────────────────────────────
+const MODE_INFO = {
+  fast: {
+    title: '🎙️ Hızlı Komut Modu',
+    body: 'Tek seferlik sesli komutlar için. Butona basın, komutunuzu söyleyin (örn. "salon ışığını aç"), tekrar basın; sonuç hemen uygulanır. Cihazlarınızı hızlıca açıp kapatmak için idealdir ve internet bağlantısı gerektirmez.'
+  },
+  chat: {
+    title: '✨ Sohbet Modu',
+    body: 'Yapay zeka ile karşılıklı sesli sohbet. Butona basıp konuşmaya başlayın; AI sizi dinler ve sesli yanıt verir. Cihazları kontrol edebilir, otomasyon kurabilir ve hava durumu gibi genel soruları yanıtlayabilir. Konuşmaya devam edebilir, bitince butona tekrar basarsınız.'
+  }
+};
+
+function openInfoModal(mode) {
+  const info = MODE_INFO[mode];
+  if (!info) return;
+  document.getElementById('info-modal-title').textContent = info.title;
+  document.getElementById('info-modal-body').textContent = info.body;
+  document.getElementById('info-modal-overlay').classList.add('open');
+}
+function closeInfoModal() { document.getElementById('info-modal-overlay').classList.remove('open'); }
+
+// ── Settings + Themes ─────────────────────────────────────────────────────────
+function applyTheme(name) {
+  document.documentElement.dataset.theme = name;
+  localStorage.setItem('theme', name);
+  _markSelectedTheme();
+}
+
+function _markSelectedTheme() {
+  const cur = document.documentElement.dataset.theme || 'gray';
+  document.querySelectorAll('.theme-card').forEach(c =>
+    c.classList.toggle('selected', c.dataset.themeName === cur)
+  );
+}
+
+async function loadSettings() {
+  _markSelectedTheme();
+  try {
+    const r = await fetch('/api/settings');
+    const d = await r.json();
+    const el = document.getElementById('gemini-key-status');
+    el.textContent = d.gemini_key_set ? '(tanımlı ✓)' : '(tanımlı değil)';
+    el.style.color = d.gemini_key_set ? '#4ade80' : 'var(--muted)';
+  } catch (e) {}
+}
+
+async function saveGeminiKey() {
+  const inp = document.getElementById('settings-gemini-key');
+  const msg = document.getElementById('settings-key-msg');
+  const key = inp.value.trim();
+  if (!key) { showToast('Anahtar girin'); return; }
+  try {
+    const r = await fetch('/api/settings/gemini-key', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key })
+    });
+    const d = await r.json();
+    msg.style.display = '';
+    if (d.ok) {
+      msg.style.color = '#4ade80';
+      msg.textContent = '✓ Anahtar kaydedildi. Yeni sohbet bağlantılarında kullanılacak.';
+      inp.value = '';
+      loadSettings();
+    } else {
+      msg.style.color = 'var(--danger)';
+      msg.textContent = '✗ ' + (d.error || 'Hata');
+    }
+  } catch (e) { showToast('Bağlantı hatası'); }
+}
+
+// ── Auto-reload on server restart ────────────────────────────────────────────
+(function autoReload() {
+  let knownId = null;
+  setInterval(async () => {
+    try {
+      const r = await fetch('/api/ping');
+      const { id } = await r.json();
+      if (knownId === null) { knownId = id; return; }
+      if (id !== knownId) location.reload();
+    } catch (e) {}
+  }, 2000);
+})();
+
+// ── Init ──────────────────────────────────────────────────────────────────────
 (function init() {
   initColorPickers();
   renderCards(initialDevices);
+  _initDayPicker();
   vkbInit();
 })();
 </script>

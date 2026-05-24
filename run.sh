@@ -16,5 +16,10 @@ else
     PYTHON="python3"
 fi
 
+# .env dosyasını yükle
+if [ -f ".env" ]; then
+    export $(grep -v '^#' .env | xargs)
+fi
+
 echo "Sunucu başlatılıyor ($PYTHON) → http://$(hostname -I | awk '{print $1}'):3000"
 exec "$PYTHON" app.py

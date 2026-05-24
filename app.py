@@ -6,12 +6,17 @@ Raspberry Pi 5 - Flask + faster-whisper + SQLite + Ollama keyword üretimi
 
 from __future__ import annotations
 
+import asyncio
+import base64
 import json
 import logging
 import os
 import re
+import signal
+import subprocess
 import tempfile
 import threading
+import time
 from difflib import SequenceMatcher
 from pathlib import Path
 
@@ -21,12 +26,36 @@ from flask import Flask, jsonify, render_template, request
 
 import db
 
+try:
+    from flask_sock import Sock as _FlaskSock
+    SOCK_AVAILABLE = True
+except ImportError:
+    SOCK_AVAILABLE = False
+    log_placeholder = logging.getLogger(__name__)
+    log_placeholder.warning("flask-sock kurulu değil — Live API WS devre dışı")
+
+try:
+    import google.genai as _genai_mod
+    GENAI_AVAILABLE = True
+except ImportError:
+    GENAI_AVAILABLE = False
+
+try:
+    from apscheduler.schedulers.background import BackgroundScheduler as _APSched
+    from apscheduler.triggers.cron import CronTrigger as _CronTrigger
+    APS_AVAILABLE = True
+except ImportError:
+    APS_AVAILABLE = False
+
 # ── Logging ──────────────────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
 
 # ── App ───────────────────────────────────────────────────────────────────────
+_START_TIME = str(int(time.time()))
 app = Flask(__name__)
+if SOCK_AVAILABLE:
+    sock = _FlaskSock(app)
 
 # ── Env ───────────────────────────────────────────────────────────────────────
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
@@ -38,6 +67,20 @@ WHISPER_BEAM_SIZE = int(os.environ.get("WHISPER_BEAM_SIZE", "1"))
 PORT = int(os.environ.get("PORT", "3000"))
 MQTT_HOST = os.environ.get("MQTT_HOST", "127.0.0.1")
 MQTT_PORT = int(os.environ.get("MQTT_PORT", "1883"))
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "models/gemini-3.1-flash-live-preview")
+GEMINI_TEXT_MODEL = os.environ.get("GEMINI_TEXT_MODEL", "gemini-flash-latest")
+
+
+def _load_gemini_key_from_db() -> None:
+    """DB'de kayıtlı anahtar varsa env'i geçersiz kılar (kullanıcı ayarladıysa)."""
+    global GEMINI_API_KEY
+    try:
+        stored = db.get_setting("gemini_api_key")
+        if stored:
+            GEMINI_API_KEY = stored
+    except Exception:
+        pass
 
 # ── faster-whisper (lazy load) ────────────────────────────────────────────────
 _whisper_model = None
@@ -210,7 +253,7 @@ def speak(text: str) -> None:
         if not path:
             return
         try:
-            import subprocess
+
             subprocess.run(["mpg123", "-q", str(path)], timeout=15)
         except Exception as e:
             log.warning("TTS oynatma hatası: %s", e)
@@ -429,7 +472,7 @@ def parse_voice_command(text: str, devices: dict[str, dict]) -> tuple[str | None
 
 
 # ── Cihaz I/O ────────────────────────────────────────────────────────────────
-def set_device(device_id: str, state: bool) -> bool:
+def set_device(device_id: str, state: bool, source: str = "manual") -> bool:
     dev = db.get_device(device_id)
     if not dev:
         return False
@@ -442,6 +485,10 @@ def set_device(device_id: str, state: bool) -> bool:
     else:
         _gpio_output(int(dev["pin"]), state)
         log.info("%-12s %s (pin=%s)", dev["label"], action, dev["pin"] if USE_GPIO else "simüle")
+    try:
+        db.log_action(device_id, "on" if state else "off", source)
+    except Exception as e:
+        log.warning("Action log yazılamadı: %s", e)
     return True
 
 
@@ -695,7 +742,7 @@ def api_voice():
 
         if device_id and action:
             new_state = action == "on"
-            set_device(device_id, new_state)
+            set_device(device_id, new_state, source="voice")
             dev = db.get_device(device_id)
             action_word = "açıldı" if new_state else "kapatıldı"
             speak(f"{dev['label']} {action_word}")
@@ -722,6 +769,11 @@ def api_voice():
             pass
 
 
+@app.route("/api/ping")
+def api_ping():
+    return jsonify({"id": _START_TIME})
+
+
 @app.route("/api/all_off", methods=["POST"])
 def api_all_off():
     for dev_id in db.list_devices_dict():
@@ -729,10 +781,793 @@ def api_all_off():
     return jsonify({"message": "Tüm cihazlar kapatıldı."})
 
 
+# ── WiFi / Ağ yönetimi ───────────────────────────────────────────────────────
+_WIFI_IFACE = "wlan0"
+
+
+def _run_nmcli(*args, timeout=15) -> tuple[bool, str]:
+    r = subprocess.run(["nmcli"] + list(args), capture_output=True, text=True, timeout=timeout)
+    return r.returncode == 0, (r.stdout + r.stderr).strip()
+
+
+def _active_connection_name() -> str | None:
+    ok, out = _run_nmcli("-t", "-f", "NAME,DEVICE", "con", "show", "--active")
+    if not ok:
+        return None
+    for line in out.splitlines():
+        parts = line.split(":")
+        if len(parts) >= 2 and parts[-1] == _WIFI_IFACE:
+            return ":".join(parts[:-1])
+    return None
+
+
+def _current_ip() -> str:
+    try:
+        r = subprocess.run(
+            ["ip", "-j", "addr", "show", _WIFI_IFACE],
+            capture_output=True, text=True, timeout=5,
+        )
+        data = json.loads(r.stdout)
+        for iface in data:
+            for addr in iface.get("addr_info", []):
+                if addr.get("family") == "inet":
+                    return addr["local"]
+    except Exception:
+        pass
+    return ""
+
+
+@app.route("/api/wifi/status")
+def api_wifi_status():
+    ok, out = _run_nmcli("-t", "-f", "ACTIVE,SSID,SIGNAL,SECURITY", "dev", "wifi", "list")
+    ssid, signal_pct, connected = "", 0, False
+    if ok:
+        for line in out.splitlines():
+            parts = line.split(":")
+            if len(parts) >= 4 and parts[0] == "yes":
+                connected = True
+                ssid = parts[1]
+                try:
+                    signal_pct = int(parts[2])
+                except ValueError:
+                    signal_pct = 0
+                break
+    return jsonify({"ssid": ssid, "signal": signal_pct, "ip": _current_ip(), "connected": connected})
+
+
+@app.route("/api/wifi/scan")
+def api_wifi_scan():
+    # rescan requires sudo; sudoers rule added for this exact command
+    subprocess.run(["sudo", "nmcli", "device", "wifi", "rescan", "ifname", _WIFI_IFACE],
+                   capture_output=True, timeout=10)
+    import time as _time; _time.sleep(3)
+    ok, out = _run_nmcli("-t", "-f", "ACTIVE,SSID,SIGNAL,SECURITY", "dev", "wifi", "list", timeout=10)
+    if not ok:
+        return jsonify({"error": out}), 500
+    networks = []
+    seen: set[str] = set()
+    connected_ssid = ""
+    for line in out.splitlines():
+        parts = line.split(":")
+        if len(parts) < 4:
+            continue
+        if parts[0] == "yes":
+            connected_ssid = parts[1]
+            break
+    for line in out.splitlines():
+        parts = line.split(":")
+        if len(parts) < 4:
+            continue
+        active, ssid, sig_str, security = parts[0], parts[1], parts[2], ":".join(parts[3:])
+        if not ssid or ssid in seen:
+            continue
+        seen.add(ssid)
+        try:
+            sig = int(sig_str)
+        except ValueError:
+            sig = 0
+        networks.append({
+            "ssid": ssid,
+            "signal": sig,
+            "security": bool(security.strip()),
+            "connected": ssid == connected_ssid,
+        })
+    networks.sort(key=lambda n: -n["signal"])
+    return jsonify(networks)
+
+
+@app.route("/api/wifi/connect", methods=["POST"])
+def api_wifi_connect():
+    data = request.get_json(silent=True) or {}
+    ssid = (data.get("ssid") or "").strip()
+    password = (data.get("password") or "").strip()
+    if not ssid:
+        return jsonify({"ok": False, "message": "SSID gerekli"}), 400
+    args = ["sudo", "nmcli", "dev", "wifi", "connect", ssid]
+    if password:
+        args += ["password", password]
+    r = subprocess.run(args, capture_output=True, text=True, timeout=30)
+    ok, out = r.returncode == 0, (r.stdout + r.stderr).strip()
+    if ok:
+        return jsonify({"ok": True, "message": f"'{ssid}' ağına bağlanıldı.", "ip": _current_ip()})
+    return jsonify({"ok": False, "message": out}), 500
+
+
+@app.route("/api/wifi/ip-config", methods=["POST"])
+def api_wifi_ip_config():
+    data = request.get_json(silent=True) or {}
+    use_custom = bool(data.get("use_custom", False))
+    ip = (data.get("ip") or "").strip()
+
+    if use_custom and not re.match(r"^\d{1,3}(\.\d{1,3}){3}$", ip):
+        return jsonify({"ok": False, "message": "Geçersiz IP adresi"}), 400
+
+    con = _active_connection_name()
+    if not con:
+        return jsonify({"ok": False, "message": "Aktif WiFi bağlantısı bulunamadı"}), 500
+
+    def _sudo_nmcli(*args, timeout=15):
+        r = subprocess.run(["sudo", "nmcli"] + list(args), capture_output=True, text=True, timeout=timeout)
+        return r.returncode == 0, (r.stdout + r.stderr).strip()
+
+    # Özel IP kapalıyken de DHCP değil, varsayılan statik 192.168.1.200 uygulanır
+    target_ip = ip if use_custom else "192.168.1.200"
+    ok, out = _sudo_nmcli("con", "mod", con,
+                          "ipv4.method", "manual",
+                          "ipv4.addresses", f"{target_ip}/24",
+                          "ipv4.gateway", "192.168.1.1",
+                          "ipv4.dns", "8.8.8.8")
+    if not ok:
+        return jsonify({"ok": False, "message": out}), 500
+
+    ok2, out2 = _sudo_nmcli("con", "up", con, timeout=20)
+    new_ip = target_ip
+    if ok2:
+        return jsonify({"ok": True, "message": "IP ayarları uygulandı.", "new_ip": new_ip})
+    return jsonify({"ok": False, "message": out2}), 500
+
+
+@app.route("/api/system/restart", methods=["POST"])
+def api_system_restart():
+    threading.Timer(1.0, lambda: os.kill(os.getpid(), signal.SIGTERM)).start()
+    return jsonify({"ok": True, "message": "Yeniden başlatılıyor…"})
+
+
+# ── Otomasyon API rotaları ────────────────────────────────────────────────────
+@app.route("/api/automations", methods=["GET"])
+def api_automations_list():
+    return jsonify(db.get_automations())
+
+
+@app.route("/api/automations", methods=["POST"])
+def api_automations_create():
+    data = request.get_json(silent=True) or {}
+    required = ("device_id", "action", "hour", "minute")
+    for f in required:
+        if f not in data:
+            return jsonify({"error": f"{f} gerekli"}), 400
+    if data["action"] not in ("on", "off"):
+        return jsonify({"error": "action 'on' veya 'off' olmalı"}), 400
+    if not db.get_device(data["device_id"]):
+        return jsonify({"error": "Cihaz bulunamadı"}), 404
+    data.setdefault("name", "Otomasyon")
+    data.setdefault("days", list(range(7)))
+    auto_id = db.create_automation(data)
+    _add_scheduler_job(auto_id)
+    return jsonify(db.get_automation(auto_id)), 201
+
+
+@app.route("/api/automations/<auto_id>", methods=["PATCH"])
+def api_automations_patch(auto_id: str):
+    if not db.get_automation(auto_id):
+        return jsonify({"error": "Otomasyon bulunamadı"}), 404
+    data = request.get_json(silent=True) or {}
+    db.update_automation(auto_id, data)
+    _remove_scheduler_job(auto_id)
+    _add_scheduler_job(auto_id)
+    return jsonify(db.get_automation(auto_id))
+
+
+@app.route("/api/automations/<auto_id>", methods=["DELETE"])
+def api_automations_delete(auto_id: str):
+    if not db.get_automation(auto_id):
+        return jsonify({"error": "Otomasyon bulunamadı"}), 404
+    _remove_scheduler_job(auto_id)
+    db.delete_automation(auto_id)
+    return jsonify({"ok": True})
+
+
+# ── Akıllı Öneriler ───────────────────────────────────────────────────────────
+_WEEKDAY_NAMES = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
+
+
+def _llm_complete(prompt: str) -> str:
+    """Metni önce Gemini (generateContent) ile, başarısız olursa Ollama ile tamamlar.
+    Gemini metin API'si Live API'den ayrı kotaya sahiptir."""
+    # 1) Gemini metin modeli
+    client = _get_genai_client()
+    if client is not None:
+        try:
+            r = client.models.generate_content(model=GEMINI_TEXT_MODEL, contents=prompt)
+            text = (r.text or "").strip()
+            if text:
+                return text
+        except Exception as e:
+            log.warning("Gemini metin analizi başarısız, Ollama'ya geçiliyor: %s", str(e)[:160])
+    # 2) Ollama fallback
+    try:
+        r = requests.post(
+            f"{OLLAMA_HOST}/api/chat",
+            json={"model": OLLAMA_MODEL, "messages": [{"role": "user", "content": prompt}], "stream": False},
+            timeout=120,
+        )
+        r.raise_for_status()
+        return ((r.json().get("message") or {}).get("content") or "").strip()
+    except Exception as e:
+        log.warning("Ollama metin analizi başarısız: %s", str(e)[:160])
+        return ""
+
+
+def _analyze_suggestions() -> int:
+    """Son 14 günün işlem geçmişini AI (Gemini, yedek Ollama) ile analiz edip öneri üretir.
+    Üretilen yeni öneri sayısını döndürür."""
+    from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+
+    devices = db.list_devices_dict()
+    if not devices:
+        return 0
+
+    since = (_dt.now(_tz.utc) - _td(days=14)).isoformat()
+    logs = db.get_action_log(since_iso=since, exclude_sources=["automation"])
+    if len(logs) < 3:
+        log.info("Öneri analizi: yetersiz veri (%d kayıt)", len(logs))
+        return 0
+
+    # Kompakt özet: cihaz etiketi, aksiyon, saat:dakika, haftanın günü
+    lines = []
+    for entry in logs:
+        dev = devices.get(entry["device_id"])
+        if not dev:
+            continue
+        try:
+            ts = _dt.fromisoformat(entry["created_at"])
+        except ValueError:
+            continue
+        wd = _WEEKDAY_NAMES[ts.weekday()]
+        lines.append(f'{dev["label"]} | {entry["action"]} | {ts.hour:02d}:{ts.minute:02d} | {wd}')
+
+    if not lines:
+        return 0
+
+    device_list = [{"id": did, "label": d["label"]} for did, d in devices.items()]
+    prompt = (
+        "Sen bir akıllı ev otomasyon asistanısın. Aşağıda kullanıcının son 2 haftadaki cihaz "
+        "işlem geçmişi var (cihaz | aksiyon | saat | gün). Tekrar eden rutinleri bul (örn. her "
+        "sabah belirli saatte ışık açma). SADECE en az 3 kez tekrarlanan güçlü rutinleri öner. "
+        "Sadece JSON dizisi döndür, başka metin yazma.\n\n"
+        f"Cihazlar: {json.dumps(device_list, ensure_ascii=False)}\n\n"
+        "İşlem geçmişi:\n" + "\n".join(lines) + "\n\n"
+        'Çıktı formatı: [{"device_id":"<id>","action":"on|off","hour":<0-23>,"minute":<0-59>,'
+        '"days":[0-6 arası, 0=Pazartesi],"reason":"kısa Türkçe gerekçe"}]\n'
+        "Rutin yoksa boş dizi döndür: []"
+    )
+    content = _llm_complete(prompt)
+    if not content:
+        log.warning("Öneri analizi: LLM yanıtı boş")
+        return 0
+    try:
+        m = re.search(r"\[[\s\S]*\]", content)
+        if m:
+            content = m.group(0)
+        arr = json.loads(content)
+    except Exception as e:
+        log.warning("Öneri analizi JSON ayrıştırma hatası: %s", e)
+        return 0
+
+    if not isinstance(arr, list):
+        return 0
+
+    existing_autos = db.get_automations()
+    existing_sugs = db.get_suggestions("pending")
+
+    def _is_dup(did: str, action: str, hour: int) -> bool:
+        for a in existing_autos:
+            if a["device_id"] == did and a["action"] == action and a["hour"] == hour:
+                return True
+        for s in existing_sugs:
+            if s["device_id"] == did and s["action"] == action and s["hour"] == hour:
+                return True
+        return False
+
+    created = 0
+    for item in arr:
+        try:
+            did = item["device_id"]
+            action = item["action"]
+            hour = int(item["hour"])
+            minute = int(item["minute"])
+        except (KeyError, ValueError, TypeError):
+            continue
+        if did not in devices or action not in ("on", "off"):
+            continue
+        if not (0 <= hour <= 23 and 0 <= minute <= 59):
+            continue
+        if _is_dup(did, action, hour):
+            continue
+        days = item.get("days", list(range(7)))
+        if not isinstance(days, list) or not days:
+            days = list(range(7))
+        days = [int(d) for d in days if isinstance(d, (int, float)) and 0 <= int(d) <= 6]
+        db.create_suggestion({
+            "device_id": did, "action": action, "hour": hour, "minute": minute,
+            "days": days or list(range(7)), "reason": str(item.get("reason", "")).strip(),
+        })
+        existing_sugs.append({"device_id": did, "action": action, "hour": hour})
+        created += 1
+
+    # Eski logları buda (30 günden eski)
+    try:
+        prune_before = (_dt.now(_tz.utc) - _td(days=30)).isoformat()
+        db.prune_action_log(prune_before)
+    except Exception:
+        pass
+
+    log.info("Öneri analizi tamamlandı: %d yeni öneri", created)
+    return created
+
+
+def _analyze_suggestions_job() -> None:
+    try:
+        _analyze_suggestions()
+    except Exception as e:
+        log.exception("Öneri analiz job hatası: %s", e)
+
+
+@app.route("/api/suggestions", methods=["GET"])
+def api_suggestions_list():
+    devices = db.list_devices_dict()
+    out = []
+    for s in db.get_suggestions("pending"):
+        dev = devices.get(s["device_id"])
+        out.append({**s, "device_label": dev["label"] if dev else s["device_id"],
+                    "device_icon": dev["icon"] if dev else "🏠"})
+    return jsonify(out)
+
+
+@app.route("/api/suggestions/analyze", methods=["POST"])
+def api_suggestions_analyze():
+    count = _analyze_suggestions()
+    return jsonify({"ok": True, "created": count})
+
+
+@app.route("/api/suggestions/<sug_id>/accept", methods=["POST"])
+def api_suggestions_accept(sug_id: str):
+    sug = db.get_suggestion(sug_id)
+    if not sug:
+        return jsonify({"error": "Öneri bulunamadı"}), 404
+    dev = db.get_device(sug["device_id"])
+    name = f'{dev["label"] if dev else "Cihaz"} otomasyonu'
+    auto_id = db.create_automation({
+        "name": name, "device_id": sug["device_id"], "action": sug["action"],
+        "hour": sug["hour"], "minute": sug["minute"], "days": sug["days"],
+    })
+    _add_scheduler_job(auto_id)
+    db.delete_suggestion(sug_id)
+    return jsonify({"ok": True, "automation": db.get_automation(auto_id)}), 201
+
+
+@app.route("/api/suggestions/<sug_id>", methods=["DELETE"])
+def api_suggestions_delete(sug_id: str):
+    if not db.get_suggestion(sug_id):
+        return jsonify({"error": "Öneri bulunamadı"}), 404
+    db.delete_suggestion(sug_id)
+    return jsonify({"ok": True})
+
+
+# ── Ayarlar ───────────────────────────────────────────────────────────────────
+@app.route("/api/settings", methods=["GET"])
+def api_settings_get():
+    return jsonify({"gemini_key_set": bool(GEMINI_API_KEY)})
+
+
+@app.route("/api/settings/gemini-key", methods=["POST"])
+def api_settings_gemini_key():
+    global GEMINI_API_KEY, _genai_client
+    data = request.get_json(silent=True) or {}
+    key = (data.get("key") or "").strip()
+    if not key:
+        return jsonify({"ok": False, "error": "Anahtar boş olamaz"}), 400
+    db.set_setting("gemini_api_key", key)
+    GEMINI_API_KEY = key
+    _genai_client = None  # sonraki bağlantı yeni anahtarla kurulur
+    return jsonify({"ok": True, "gemini_key_set": True})
+
+
+# ── APScheduler ───────────────────────────────────────────────────────────────
+_scheduler = None
+
+_DAY_NAMES = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+
+
+def _automation_job(device_id: str, action: str) -> None:
+    state = action == "on"
+    ok = set_device(device_id, state, source="automation")
+    log.info("Otomasyon tetiklendi: device=%s action=%s ok=%s", device_id, action, ok)
+
+
+def _aps_day_str(days: list) -> str:
+    return ",".join(_DAY_NAMES[d % 7] for d in sorted(set(days)))
+
+
+def _add_scheduler_job(auto_id: str) -> None:
+    if _scheduler is None:
+        return
+    auto = db.get_automation(auto_id)
+    if not auto or not auto["enabled"]:
+        return
+    days_str = _aps_day_str(auto["days"])
+    try:
+        _scheduler.add_job(
+            _automation_job,
+            _CronTrigger(hour=auto["hour"], minute=auto["minute"], day_of_week=days_str),
+            args=[auto["device_id"], auto["action"]],
+            id=f"auto_{auto_id}",
+            replace_existing=True,
+        )
+        log.info("Scheduler job eklendi: %s @ %02d:%02d [%s]", auto["name"], auto["hour"], auto["minute"], days_str)
+    except Exception as e:
+        log.warning("Scheduler job eklenemedi: %s", e)
+
+
+def _remove_scheduler_job(auto_id: str) -> None:
+    if _scheduler is None:
+        return
+    try:
+        _scheduler.remove_job(f"auto_{auto_id}")
+    except Exception:
+        pass
+
+
+def _init_scheduler() -> None:
+    global _scheduler
+    if not APS_AVAILABLE:
+        log.warning("APScheduler kurulu değil — otomasyonlar çalışmayacak")
+        return
+    _scheduler = _APSched()
+    _scheduler.start()
+    for auto in db.get_automations():
+        if auto["enabled"]:
+            _add_scheduler_job(auto["id"])
+    # Günlük akıllı öneri analizi (her gün 03:00)
+    try:
+        _scheduler.add_job(
+            _analyze_suggestions_job,
+            _CronTrigger(hour=3, minute=0),
+            id="daily_suggestions",
+            replace_existing=True,
+        )
+    except Exception as e:
+        log.warning("Öneri analiz job eklenemedi: %s", e)
+    log.info("APScheduler başlatıldı, %d otomasyon yüklendi.", len([a for a in db.get_automations() if a["enabled"]]))
+
+
+# ── Gemini Live Tool Executor ─────────────────────────────────────────────────
+def _execute_gemini_tool(name: str, args: dict) -> dict:
+    if name == "toggle_device":
+        device_id = args.get("device_id")
+        state = args.get("state")
+        if not device_id or state is None:
+            return {"success": False, "error": "Geçersiz parametre"}
+        ok = set_device(device_id, bool(state), source="chat")
+        dev = db.get_device(device_id)
+        return {"success": ok, "device_id": device_id, "state": bool(state), "label": dev["label"] if dev else device_id}
+
+    if name == "get_device_status":
+        devices = db.list_devices_dict()
+        return {"devices": [{"id": did, "label": d["label"], "state": d["state"]} for did, d in devices.items()]}
+
+    if name == "turn_all_off":
+        for dev_id in db.list_devices_dict():
+            set_device(dev_id, False, source="chat")
+        return {"success": True}
+
+    if name == "create_or_update_automation":
+        if not db.get_device(args.get("device_id", "")):
+            return {"success": False, "error": "Cihaz bulunamadı"}
+        try:
+            auto_data = {
+                "name": args.get("name", "Otomasyon"),
+                "device_id": args["device_id"],
+                "action": args["action"],
+                "hour": int(args["hour"]),
+                "minute": int(args["minute"]),
+                "days": [int(d) for d in args.get("days", list(range(7)))],
+            }
+            auto_id = db.create_automation(auto_data)
+            _add_scheduler_job(auto_id)
+            return {"success": True, "automation_id": auto_id, "name": auto_data["name"]}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    return {"success": False, "error": f"Bilinmeyen tool: {name}"}
+
+
+# ── Gemini Live API WebSocket ─────────────────────────────────────────────────
+async def _gemini_live_session(ws) -> None:
+    if not GENAI_AVAILABLE:
+        ws.send(json.dumps({"type": "error", "message": "google-genai paketi kurulu değil. pip install google-genai"}))
+        return
+
+    api_key = GEMINI_API_KEY
+    if not api_key:
+        ws.send(json.dumps({"type": "error", "message": "GEMINI_API_KEY ortam değişkeni ayarlanmamış."}))
+        return
+
+    from google.genai import types as gtypes
+
+    devices = db.list_devices_dict()
+    device_list_str = json.dumps(
+        [{"id": did, "label": d["label"]} for did, d in devices.items()],
+        ensure_ascii=False,
+    )
+    system_prompt = (
+        "Sen Türkçe konuşan bir akıllı ev asistanısın. "
+        "Kullanıcının sesli komutlarını anlayarak akıllı ev cihazlarını kontrol et ve "
+        "otomasyon kurmasına yardımcı ol. "
+        f"Mevcut cihazlar: {device_list_str}. "
+        "Her zaman kısa ve net Türkçe yanıt ver. "
+        "Konuşma geçmişini hatırla ve konuşmaya devam et. "
+        "Hava durumu, haberler veya güncel bilgi gibi soruları Google arama ile yanıtlayabilirsin."
+    )
+
+    tools = [gtypes.Tool(function_declarations=[
+        gtypes.FunctionDeclaration(
+            name="toggle_device",
+            description="Bir cihazı aç veya kapat",
+            parameters=gtypes.Schema(
+                type=gtypes.Type.OBJECT,
+                properties={
+                    "device_id": gtypes.Schema(type=gtypes.Type.STRING, description="Cihaz ID'si"),
+                    "state": gtypes.Schema(type=gtypes.Type.BOOLEAN, description="True=aç, False=kapat"),
+                },
+                required=["device_id", "state"],
+            ),
+        ),
+        gtypes.FunctionDeclaration(
+            name="get_device_status",
+            description="Tüm cihazların mevcut durumunu listele",
+            parameters=gtypes.Schema(type=gtypes.Type.OBJECT, properties={}),
+        ),
+        gtypes.FunctionDeclaration(
+            name="turn_all_off",
+            description="Tüm cihazları kapat",
+            parameters=gtypes.Schema(type=gtypes.Type.OBJECT, properties={}),
+        ),
+        gtypes.FunctionDeclaration(
+            name="create_or_update_automation",
+            description="Belirli bir saatte cihazı otomatik aç veya kapat",
+            parameters=gtypes.Schema(
+                type=gtypes.Type.OBJECT,
+                properties={
+                    "name": gtypes.Schema(type=gtypes.Type.STRING, description="Otomasyon adı"),
+                    "device_id": gtypes.Schema(type=gtypes.Type.STRING, description="Cihaz ID'si"),
+                    "action": gtypes.Schema(type=gtypes.Type.STRING, enum=["on", "off"]),
+                    "hour": gtypes.Schema(type=gtypes.Type.INTEGER, description="Saat (0-23)"),
+                    "minute": gtypes.Schema(type=gtypes.Type.INTEGER, description="Dakika (0-59)"),
+                    "days": gtypes.Schema(
+                        type=gtypes.Type.ARRAY,
+                        items=gtypes.Schema(type=gtypes.Type.INTEGER),
+                        description="Günler: 0=Pazartesi … 6=Pazar",
+                    ),
+                },
+                required=["name", "device_id", "action", "hour", "minute", "days"],
+            ),
+        ),
+    ])]
+
+    config = gtypes.LiveConnectConfig(
+        response_modalities=["AUDIO"],
+        system_instruction=system_prompt,
+        tools=tools,
+    )
+
+    client = _get_genai_client()
+    loop = asyncio.get_event_loop()
+
+    # Queue for browser→Gemini messages; shared across reconnects
+    audio_queue: asyncio.Queue = asyncio.Queue(maxsize=200)
+    ws_closed = asyncio.Event()
+
+    async def read_ws_loop():
+        """Read browser WebSocket messages into queue; set ws_closed when done."""
+        while True:
+            try:
+                msg = await loop.run_in_executor(None, ws.receive)
+            except Exception:
+                break
+            if msg is None:
+                break
+            try:
+                await audio_queue.put(msg)
+            except Exception:
+                break
+        ws_closed.set()
+
+    read_task = asyncio.create_task(read_ws_loop())
+    connected_sent = False
+
+    try:
+        log.info("Gemini Live bağlantısı kuruluyor: %s", GEMINI_MODEL)
+
+        while not ws_closed.is_set():
+            log.info("Gemini Live session başlatılıyor")
+            try:
+                async with client.aio.live.connect(model=GEMINI_MODEL, config=config) as session:
+                    log.info("Gemini Live bağlandı")
+                    if not connected_sent:
+                        connected_sent = True
+                        try:
+                            ws.send(json.dumps({"type": "connected"}))
+                        except Exception:
+                            return
+
+                    async def send_to_gemini():
+                        while not ws_closed.is_set():
+                            try:
+                                msg = await asyncio.wait_for(audio_queue.get(), timeout=1.0)
+                            except asyncio.TimeoutError:
+                                continue
+                            except asyncio.CancelledError:
+                                return
+                            try:
+                                data = json.loads(msg)
+                                msg_type = data.get("type")
+                                if msg_type == "audio":
+                                    audio_bytes = base64.b64decode(data["data"])
+                                    await session.send_realtime_input(
+                                        audio=gtypes.Blob(data=audio_bytes, mime_type="audio/pcm;rate=16000")
+                                    )
+                                elif msg_type == "end_of_turn":
+                                    await session.send_client_content(
+                                        turns=gtypes.Content(role="user", parts=[gtypes.Part(text=" ")]),
+                                        turn_complete=True,
+                                    )
+                            except asyncio.CancelledError:
+                                return
+                            except Exception as e:
+                                log.warning("Live send_to_gemini hata: %s", e)
+
+                    def _send_state(value):
+                        if _send_state.last != value:
+                            _send_state.last = value
+                            try:
+                                ws.send(json.dumps({"type": "state", "value": value}))
+                            except Exception:
+                                pass
+                    _send_state.last = None
+
+                    async def recv_from_gemini():
+                        turn_has_audio = False
+                        async for response in session.receive():
+                            try:
+                                sc = response.server_content
+                                if sc and sc.model_turn:
+                                    has_audio = False
+                                    for part in sc.model_turn.parts:
+                                        if part.inline_data and part.inline_data.data:
+                                            has_audio = True
+                                            turn_has_audio = True
+                                            _send_state("speaking")
+                                            ws.send(json.dumps({
+                                                "type": "audio",
+                                                "data": base64.b64encode(part.inline_data.data).decode(),
+                                            }))
+                                    # Model cevap üretiyor ama bu pakette ses yok
+                                    if not has_audio:
+                                        _send_state("processing")
+                                if sc and getattr(sc, "turn_complete", False):
+                                    turn_has_audio = False
+                                    _send_state("listening")
+                                if response.tool_call:
+                                    _send_state("processing")
+                                    for fc in response.tool_call.function_calls:
+                                        result = _execute_gemini_tool(fc.name, dict(fc.args))
+                                        try:
+                                            ws.send(json.dumps({"type": "tool_result", "tool": fc.name, "result": result}))
+                                        except Exception:
+                                            pass
+                                        await session.send_tool_response(
+                                            function_responses=[gtypes.FunctionResponse(
+                                                id=fc.id,
+                                                name=fc.name,
+                                                response={"result": json.dumps(result, ensure_ascii=False)},
+                                            )]
+                                        )
+                            except asyncio.CancelledError:
+                                return
+                            except Exception as e:
+                                log.warning("Live recv_from_gemini hata: %s", e)
+
+                    send_task = asyncio.create_task(send_to_gemini())
+                    recv_task = asyncio.create_task(recv_from_gemini())
+                    done, pending = await asyncio.wait(
+                        [send_task, recv_task, read_task],
+                        return_when=asyncio.FIRST_COMPLETED,
+                    )
+                    for t in pending - {read_task}:
+                        t.cancel()
+                        try:
+                            await t
+                        except asyncio.CancelledError:
+                            pass
+
+                    if read_task in done or ws_closed.is_set():
+                        break
+                    # recv_task finished → Gemini closed this session turn; reconnect
+                    log.info("Gemini session kapandı, yeniden bağlanılıyor...")
+                    await asyncio.sleep(0.3)
+            except Exception as e:
+                log.warning("Gemini Live session hatası: %s", e)
+                if ws_closed.is_set():
+                    break
+                emsg = str(e).lower()
+                # Ölümcül hatalar — yeniden denemenin anlamı yok
+                if any(k in emsg for k in ("quota", "1011", "api key", "api_key",
+                                            "permission", "invalid", "unauthor", "403", "429")):
+                    user_msg = ("Gemini API kotanız dolmuş veya anahtarınız geçersiz. "
+                                "Ayarlar sekmesinden geçerli bir API anahtarı girin."
+                                if "quota" in emsg or "1011" in emsg or "429" in emsg
+                                else "Gemini API anahtarı geçersiz. Ayarlar'dan kontrol edin.")
+                    try:
+                        ws.send(json.dumps({"type": "error", "message": user_msg}))
+                    except Exception:
+                        pass
+                    break
+                await asyncio.sleep(1.0)
+    finally:
+        ws_closed.set()
+        read_task.cancel()
+        try:
+            await read_task
+        except asyncio.CancelledError:
+            pass
+
+
+if SOCK_AVAILABLE:
+    @sock.route("/ws/live")
+    def ws_live(ws):
+        log.info("Live WS bağlantısı açıldı")
+        try:
+            asyncio.run(_gemini_live_session(ws))
+        except Exception as e:
+            log.exception("Live session başlatılamadı: %s", e)
+            try:
+                ws.send(json.dumps({"type": "error", "message": str(e)}))
+            except Exception:
+                pass
+        log.info("Live WS bağlantısı kapandı")
+
+
+# ── Gemini client singleton ───────────────────────────────────────────────────
+_genai_client = None
+
+
+def _get_genai_client():
+    global _genai_client
+    if _genai_client is None and GENAI_AVAILABLE and GEMINI_API_KEY:
+        import google.genai as genai
+        _genai_client = genai.Client(api_key=GEMINI_API_KEY)
+        log.info("Gemini client hazırlandı")
+    return _genai_client
+
+
 # ── DB + GPIO + MQTT init ────────────────────────────────────────────────────
 db.init_db()
+_load_gemini_key_from_db()
 gpio_init_all_devices()
 _init_mqtt()
+_init_scheduler()
+_get_genai_client()
 # Whisper ve TTS arka planda yüklenir — Flask hemen cevap vermeye başlar
 def _bg_startup():
     get_whisper_model()
