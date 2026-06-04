@@ -1,6 +1,7 @@
 # Python
 __pycache__/
 *.py[cod]
+*.pyc
 *$py.class
 .pytest_cache/
 .venv/
@@ -13,7 +14,8 @@ env/
 .env.*
 !.env.example
 
-# Database
+# Database (ayarlar / gemini_api_key burada tutulabilir)
+smarthome.db
 *.db
 *.sqlite
 *.sqlite3
